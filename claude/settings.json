@@ -13,7 +13,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$HOME/dotfiles/vendor/gsong/cc-notify.mjs\""
+            "command": "\"$HOME/dotfiles/bin/agent-notify\""
           }
         ]
       }
@@ -23,7 +23,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$HOME/dotfiles/vendor/gsong/cc-notify.mjs\""
+            "command": "\"$HOME/dotfiles/bin/agent-notify\""
           }
         ]
       }

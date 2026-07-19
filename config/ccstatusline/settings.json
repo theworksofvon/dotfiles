@@ -7,7 +7,7 @@
       {
         "id": "auth",
         "type": "custom-command",
-        "commandPath": "node \"$HOME/dotfiles/vendor/gsong/cc-auth-status.mjs\"",
+        "commandPath": "\"$HOME/dotfiles/bin/claude-account\"",
         "preserveColors": true
       },
       { "id": "sep1", "type": "separator", "character": "|" },
@@ -35,7 +35,7 @@
       {
         "id": "usage",
         "type": "custom-command",
-        "commandPath": "node \"$HOME/dotfiles/vendor/gsong/cc-time-left.mjs\""
+        "commandPath": "\"$HOME/dotfiles/bin/claude-usage\" --prompt"
       }
     ],
     [
@@ -43,7 +43,7 @@
       {
         "id": "pr",
         "type": "custom-command",
-        "commandPath": "node \"$HOME/dotfiles/vendor/gsong/cc-pr-number.mjs\""
+        "commandPath": "\"$HOME/dotfiles/bin/git-pr\""
       },
       { "id": "sep3", "type": "separator", "character": "|" },
       { "id": "branch", "type": "git-branch", "color": "brightBlue" },

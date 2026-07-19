@@ -1,0 +1,62 @@
+#!/usr/bin/env node
+/**
+ * git-pr — the PR number for the current branch, as ` | #123`.
+ *
+ * Built for a status line, so it prints nothing outside a repo, off a PR, or
+ * when gh isn't set up. Two cache lifetimes on purpose: a hit is stable for
+ * five minutes, but a miss is rechecked after one, so a PR you just opened
+ * shows up quickly instead of after a long stale window.
+ */
+
+import { execFileSync } from "child_process";
+import { mkdirSync, readFileSync, writeFileSync } from "fs";
+import { homedir } from "os";
+import { createHash } from "crypto";
+import { join } from "path";
+
+const CACHE_DIR = join(homedir(), ".cache", "git-pr");
+const TTL_HIT_MS = 5 * 60 * 1000;
+const TTL_MISS_MS = 60 * 1000;
+
+const run = (cmd, args) => {
+  try {
+    return execFileSync(cmd, args, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return null;
+  }
+};
+
+const root = run("git", ["rev-parse", "--show-toplevel"]);
+if (!root) process.exit(0);
+
+const branch = run("git", ["rev-parse", "--abbrev-ref", "HEAD"]);
+if (!branch || branch === "HEAD") process.exit(0);
+
+const key = createHash("sha256").update(`${root}#${branch}`).digest("hex").slice(0, 16);
+const cacheFile = join(CACHE_DIR, `${key}.json`);
+
+try {
+  const c = JSON.parse(readFileSync(cacheFile, "utf8"));
+  const ttl = c.number ? TTL_HIT_MS : TTL_MISS_MS;
+  if (Date.now() - c.timestamp < ttl) {
+    if (c.number) process.stdout.write(` | #${c.number}`);
+    process.exit(0);
+  }
+} catch {
+  /* no cache yet */
+}
+
+const out = run("gh", ["pr", "view", "--json", "number", "-q", ".number"]);
+const number = out && /^\d+$/.test(out) ? Number(out) : null;
+
+try {
+  mkdirSync(CACHE_DIR, { recursive: true });
+  writeFileSync(cacheFile, JSON.stringify({ timestamp: Date.now(), number }));
+} catch {
+  /* cache is optional */
+}
+
+if (number) process.stdout.write(` | #${number}`);

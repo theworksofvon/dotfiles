@@ -1,0 +1,84 @@
+#!/usr/bin/env node
+/**
+ * claude-account — which Claude account is currently active.
+ *
+ * Useful when juggling logins (see the claude-account-* helpers in zshrc):
+ * the org name Anthropic returns is long and unhelpful, so map org IDs to
+ * short labels in ~/.config/claude-account/accounts.json:
+ *
+ *   { "<org-uuid>": { "label": "personal", "color": "cyan" } }
+ *
+ * Falls back to the email prefix when an org isn't mapped. Cached 60s since
+ * it's rendered in the status line.
+ */
+
+import { execFileSync } from "child_process";
+import { mkdirSync, readFileSync, writeFileSync } from "fs";
+import { homedir } from "os";
+import { join } from "path";
+
+const CONFIG = join(homedir(), ".config", "claude-account", "accounts.json");
+const CACHE = join(homedir(), ".cache", "claude-account", "status.json");
+const TTL_MS = 60 * 1000;
+
+const COLORS = {
+  black: 30, red: 31, green: 32, yellow: 33,
+  blue: 34, magenta: 35, cyan: 36, white: 37,
+};
+
+function cached() {
+  try {
+    const c = JSON.parse(readFileSync(CACHE, "utf8"));
+    if (Date.now() - c.timestamp < TTL_MS) return c.status;
+  } catch {
+    /* no cache */
+  }
+  return null;
+}
+
+function store(status) {
+  try {
+    mkdirSync(join(homedir(), ".cache", "claude-account"), { recursive: true });
+    writeFileSync(CACHE, JSON.stringify({ timestamp: Date.now(), status }));
+  } catch {
+    /* cache is optional */
+  }
+}
+
+function authStatus() {
+  try {
+    // Clearing ANTHROPIC_API_KEY forces the OAuth identity to be reported
+    // rather than whatever an env-var key would resolve to.
+    const env = { ...process.env };
+    delete env.ANTHROPIC_API_KEY;
+    const raw = execFileSync("claude", ["auth", "status"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      env,
+    });
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+let status = cached();
+if (!status) {
+  status = authStatus();
+  if (status) store(status);
+}
+
+if (!status?.loggedIn) process.exit(0);
+
+let accounts = {};
+try {
+  accounts = JSON.parse(readFileSync(CONFIG, "utf8"));
+} catch {
+  /* unmapped is fine */
+}
+
+const entry = accounts[status.orgId];
+const label = entry?.label || (status.email || "").split("@")[0] || "claude";
+const code = COLORS[entry?.color] ?? COLORS.cyan;
+
+process.stdout.write(`\x1b[${code}m${label}\x1b[0m`);

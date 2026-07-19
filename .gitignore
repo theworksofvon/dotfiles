@@ -11,3 +11,6 @@ claude/settings.local.json
 
 # LazyVim runtime state (plugins are restored from lazy-lock.json)
 nvim/lazyvim.json
+
+# account identifiers are machine-local (see accounts.example.json)
+config/claude-account/accounts.json

@@ -65,16 +65,27 @@ a bad package to be caught upstream. Node projects want
 ```
 setup.sh     install prerequisites, then link
 install.sh   link only
-zsh/ git/ tmux/ starship/ ghostty/ mise/ claude/
-vendor/      borrowed scripts — see vendor/gsong/README.md
+ai/          agent instructions, shared by Claude and Codex
+bin/         usage meters, notifier, status-line widgets
+zsh/ git/ tmux/ nvim/ starship/ ghostty/ mise/ claude/
 ```
 
 Configs are symlinked, so editing a live file edits this repo. Commit and push;
 there's no copy-back step. Replaced files are backed up to `*.bak`.
 
-## Credits
+## Commands
 
-`vendor/gsong/` holds two Claude Code scripts from
-[gsong/home-directory](https://github.com/gsong/home-directory) — the usage
-meter and the notification hook. See
-[`vendor/gsong/README.md`](vendor/gsong/README.md) for license status.
+```sh
+ai-usage        both providers at once
+claude-usage    limits, token counts, per-model breakdown
+codex-usage     quota and tokens from Codex session logs
+usage-alert     notify past 80%; runs backgrounded at shell start
+```
+
+Each takes `--short` and `--json`; `claude-usage` also takes `--prompt`.
+
+## License
+
+MIT — see [LICENSE](LICENSE). The Claude Code approach here was inspired by
+[gsong/home-directory](https://github.com/gsong/home-directory), which is worth
+reading if you're building something similar.

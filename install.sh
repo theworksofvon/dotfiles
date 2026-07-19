@@ -56,7 +56,14 @@ echo "mise"       ; link mise/config.toml   "$HOME/.config/mise/config.toml"
 echo "Claude Code"
 link claude/settings.json "$HOME/.claude/settings.json"
 link config/ccstatusline/settings.json  "$HOME/.config/ccstatusline/settings.json"
-link config/cc-auth-status/accounts.json "$HOME/.config/cc-auth-status/accounts.json"
+# Account labels hold a personal org ID, so they're gitignored. Seed from the
+# example on a fresh machine; claude-account falls back to the email prefix
+# if it's never filled in.
+if [ ! -e "$DOTFILES/config/claude-account/accounts.json" ] && ! $DRY_RUN; then
+  cp "$DOTFILES/config/claude-account/accounts.example.json" \
+     "$DOTFILES/config/claude-account/accounts.json"
+fi
+link config/claude-account/accounts.json "$HOME/.config/claude-account/accounts.json"
 
 # One instructions file, two agents: Claude reads CLAUDE.md, Codex reads
 # AGENTS.md. Both point at the same source so they can't drift apart.
@@ -82,7 +89,7 @@ else
   echo "  ${dim}·${reset} active prompt -> $(basename "$(readlink "$HOME/.config/starship.toml")" .toml)"
 fi
 
-$DRY_RUN || chmod +x "$DOTFILES"/vendor/gsong/*.mjs "$DOTFILES"/bin/*
+$DRY_RUN || chmod +x "$DOTFILES"/bin/*
 
 echo
 if $DRY_RUN; then

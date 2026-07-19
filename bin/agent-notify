@@ -1,0 +1,134 @@
+#!/usr/bin/env node
+/**
+ * agent-notify — macOS notification hook for Claude Code (and any agent that
+ * speaks the same hook protocol).
+ *
+ * The point is to stay quiet when you're already watching. It notifies only
+ * when your attention is somewhere else:
+ *
+ *   terminal not frontmost            → notify (you're in another app)
+ *   terminal frontmost, not in tmux   → stay quiet (you're looking at it)
+ *   terminal frontmost, in tmux       → notify only if this pane is inactive
+ *
+ * Reads the hook payload as JSON on stdin. Flags override for testing.
+ *
+ *   agent-notify --force --title X --message Y
+ *   agent-notify --debug   explain the decision, send nothing
+ */
+
+import { execSync } from "child_process";
+import { readFileSync } from "fs";
+import { basename } from "path";
+
+const argv = process.argv.slice(2);
+const flag = (name) => argv.includes(`--${name}`);
+const value = (name) => {
+  const i = argv.indexOf(`--${name}`);
+  return i >= 0 ? argv[i + 1] : undefined;
+};
+
+const sh = (cmd) => {
+  try {
+    return execSync(cmd, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  } catch {
+    return "";
+  }
+};
+
+// The terminal the agent is running in, so this isn't hardcoded to one app.
+// TERM_PROGRAM is set by every terminal worth supporting.
+function terminalIsFrontmost() {
+  const frontmost = sh(
+    `osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true'`,
+  ).toLowerCase();
+  if (!frontmost) return false;
+
+  const term = (process.env.TERM_PROGRAM || "").toLowerCase();
+  if (!term) return false;
+
+  // "Apple_Terminal" → "terminal", "ghostty" → "ghostty", "iTerm.app" → "iterm"
+  const normalized = term.replace(/^apple_/, "").replace(/\.app$/, "");
+  return frontmost.includes(normalized) || normalized.includes(frontmost);
+}
+
+// Both the pane and its window must be active for you to actually see output.
+function inActiveTmuxPane() {
+  if (!process.env.TMUX) return false;
+  return sh("tmux display-message -p '#{pane_active} #{window_active}'") === "1 1";
+}
+
+function shouldNotify() {
+  if (flag("force")) return { notify: true, why: "forced" };
+  if (!terminalIsFrontmost()) return { notify: true, why: "terminal not frontmost" };
+  if (inActiveTmuxPane()) return { notify: false, why: "you are watching this pane" };
+  if (process.env.TMUX) return { notify: true, why: "inactive tmux pane" };
+  return { notify: false, why: "terminal is frontmost" };
+}
+
+function readStdin() {
+  try {
+    return JSON.parse(readFileSync(0, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+// Sound and wording depend on whether you need to act or it just finished.
+function describe(event) {
+  const dir = basename(process.cwd());
+  switch (event.hook_event_name) {
+    case "Notification":
+      return {
+        title: "Claude · input needed",
+        subtitle: dir,
+        message: event.message || "Waiting on you",
+        sound: "Ping",
+      };
+    case "Stop":
+      return {
+        title: "Claude · done",
+        subtitle: dir,
+        message: `Finished in ${dir}`,
+        sound: "Glass",
+      };
+    default:
+      return {
+        title: "Claude",
+        subtitle: dir,
+        message: event.message || event.hook_event_name || "Event",
+        sound: "default",
+      };
+  }
+}
+
+function notify({ title, subtitle, message, sound }) {
+  // AppleScript strings need backslashes and quotes escaped, then the whole
+  // script needs escaping again for the shell.
+  const esc = (s) => String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  const script =
+    `display notification "${esc(message)}" with title "${esc(title)}" ` +
+    `subtitle "${esc(subtitle)}" sound name "${esc(sound)}"`;
+  try {
+    execSync(`osascript -e '${script.replace(/'/g, "'\\''")}'`, { stdio: "ignore" });
+  } catch {
+    /* a failed notification should never fail the hook */
+  }
+}
+
+const event = flag("title") ? {} : readStdin();
+const config = describe(event);
+for (const key of ["title", "subtitle", "message", "sound"]) {
+  const override = value(key);
+  if (override) config[key] = override;
+}
+
+const decision = shouldNotify();
+
+if (flag("debug")) {
+  console.log(`notify: ${decision.notify}  (${decision.why})`);
+  console.log(`  TERM_PROGRAM=${process.env.TERM_PROGRAM || "unset"} TMUX=${process.env.TMUX ? "yes" : "no"}`);
+  console.log(`  would send: ${config.title} — ${config.message}`);
+  process.exit(0);
+}
+
+if (decision.notify) notify(config);

@@ -1,59 +1,101 @@
 #!/usr/bin/env node
 /**
- * claude-usage — report Claude subscription limits in full.
+ * claude-usage — Claude subscription limits and token usage.
  *
- * The prompt shows a compact version; this is the detailed view: every window
- * including per-model quotas, reset times, and credit balance.
+ * Two sources, because neither alone is enough:
+ *   - Anthropic's OAuth usage endpoint gives quota percentages and reset
+ *     times, but no token counts. Auth comes from the macOS Keychain entry
+ *     Claude Code writes.
+ *   - The local transcripts under ~/.claude/projects carry real token counts.
  *
- * Data comes from Anthropic's OAuth usage endpoint via cc-time-left.mjs, which
- * handles the Keychain token and caching. This refreshes that cache, then
- * formats what it wrote.
+ * Responses are cached for 5 minutes so --prompt is cheap enough to run on
+ * every shell prompt.
  *
- *   claude-usage           human-readable summary
- *   claude-usage --short   one line
+ *   claude-usage           full report
+ *   claude-usage --prompt  compact segment for a prompt or status bar
+ *   claude-usage --short   percentages only
  *   claude-usage --json    raw API response
+ *   claude-usage --refresh bypass the cache
  */
 
 import { execFileSync } from "child_process";
-import { readFileSync, readdirSync, statSync } from "fs";
+import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 
-const CACHE = join(homedir(), ".cache", "cc-time-left", "usage-data.json");
-const FETCHER = join(homedir(), "dotfiles", "vendor", "gsong", "cc-time-left.mjs");
+const API = "https://api.anthropic.com/api/oauth/usage";
+const KEYCHAIN_SERVICE = "Claude Code-credentials";
+const CACHE_DIR = join(homedir(), ".cache", "claude-usage");
+const CACHE_FILE = join(CACHE_DIR, "usage.json");
+const CACHE_TTL_MS = 5 * 60 * 1000;
 const PROJECTS = join(homedir(), ".claude", "projects");
 
 const args = process.argv.slice(2);
-const SHORT = args.includes("--short");
-const JSON_OUT = args.includes("--json");
+const MODE = args.includes("--prompt")
+  ? "prompt"
+  : args.includes("--short")
+    ? "short"
+    : args.includes("--json")
+      ? "json"
+      : "full";
+const REFRESH = args.includes("--refresh");
 
-// cc-time-left owns the Keychain lookup and cache; refresh through it rather
-// than duplicating that logic. A failure here is fine if a cache already exists.
-try {
-  execFileSync("node", [FETCHER, "--force-refresh"], { stdio: "ignore" });
-} catch {
-  /* offline or not logged in — fall back to whatever is cached */
+// ── data ──────────────────────────────────────────
+
+function keychainToken() {
+  try {
+    const raw = execFileSync(
+      "security",
+      ["find-generic-password", "-s", KEYCHAIN_SERVICE, "-w"],
+      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+    );
+    return JSON.parse(raw).claudeAiOauth?.accessToken || null;
+  } catch {
+    return null;
+  }
 }
 
-let cached;
-try {
-  cached = JSON.parse(readFileSync(CACHE, "utf8"));
-} catch {
-  console.error("No usage data available. Is Claude Code logged in?");
-  process.exit(1);
+function readCache() {
+  try {
+    const c = JSON.parse(readFileSync(CACHE_FILE, "utf8"));
+    if (Date.now() - c.timestamp < CACHE_TTL_MS) return c.data;
+  } catch {
+    /* no cache yet, or unreadable */
+  }
+  return null;
 }
 
-const data = cached.data || {};
-const ageMs = Date.now() - (cached.timestamp || 0);
-
-if (JSON_OUT) {
-  console.log(JSON.stringify(data, null, 2));
-  process.exit(0);
+function writeCache(data) {
+  try {
+    mkdirSync(CACHE_DIR, { recursive: true });
+    writeFileSync(CACHE_FILE, JSON.stringify({ timestamp: Date.now(), data }));
+  } catch {
+    /* cache is an optimization; failing to write is not fatal */
+  }
 }
+
+async function fetchUsage() {
+  const token = keychainToken();
+  if (!token) return null;
+  try {
+    const res = await fetch(API, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        // Without this beta header the endpoint rejects OAuth tokens.
+        "anthropic-beta": "oauth-2025-04-20",
+      },
+    });
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  }
+}
+
+// ── presentation ──────────────────────────────────
 
 const pct = (n) => `${Math.round(n)}%`;
 const fmt = (n) => n.toLocaleString("en-US");
-const dot = (p) => (p < 50 ? "🟢" : p < 80 ? "🟡" : "🔴");
 
 function humanDuration(ms) {
   const abs = Math.abs(ms);
@@ -65,57 +107,65 @@ function humanDuration(ms) {
   return `${m}m`;
 }
 
-// Prefer limits[] — it carries per-model scopes the flat fields don't.
-const rows = [];
-for (const l of data.limits || []) {
-  const label =
-    l.kind === "session"
-      ? "5-hour"
-      : l.kind === "weekly_all"
-        ? "weekly"
+// Time of day for near resets, days out for distant ones.
+function resetLabel(date, windowMs) {
+  if (windowMs > 24 * 3600 * 1000) return `${Math.round((date - Date.now()) / 86400000)}d`;
+  const h = date.getHours();
+  const suffix = h < 12 ? "am" : "pm";
+  const hour = h % 12 || 12;
+  return `${hour}${suffix}`;
+}
+
+/**
+ * Indicator by burn rate rather than raw percentage: spending 60% of a weekly
+ * quota is fine on day six and alarming in the first hour. Compares quota
+ * consumed against time elapsed in the same window.
+ */
+function indicator(usedPercent, resetsAt, windowMs) {
+  const elapsed = windowMs - (resetsAt.getTime() - Date.now());
+  const elapsedPercent = (elapsed / windowMs) * 100;
+
+  // Ratios are meaningless in the opening slice of a window.
+  if (elapsedPercent <= 0) return "🟢";
+  if (elapsedPercent < 10 && usedPercent < 15) return "🟢";
+
+  const ratio = usedPercent / elapsedPercent;
+  return ratio < 1.0 ? "🟢" : ratio < 1.3 ? "🟡" : "🔴";
+}
+
+// Hours until the quota runs out at the current rate, or null if it won't.
+function projectedExhaustion(usedPercent, resetsAt, windowMs) {
+  const elapsed = windowMs - (resetsAt.getTime() - Date.now());
+  if (elapsed <= 0 || usedPercent <= 0) return null;
+  const msPerPercent = elapsed / usedPercent;
+  const remaining = (100 - usedPercent) * msPerPercent;
+  return remaining < resetsAt.getTime() - Date.now() ? remaining : null;
+}
+
+const WINDOW_MS = { session: 5 * 3600 * 1000, weekly: 7 * 86400000 };
+
+function windowsFrom(data) {
+  const rows = [];
+  for (const l of data.limits || []) {
+    const isSession = l.kind === "session";
+    rows.push({
+      key: l.kind,
+      label: isSession
+        ? "5-hour"
         : l.scope?.model?.display_name
           ? `weekly · ${l.scope.model.display_name}`
-          : l.kind;
-  rows.push({ label, used: l.percent, resetsAt: l.resets_at ? new Date(l.resets_at) : null });
-}
-
-if (rows.length === 0) {
-  for (const [key, label] of [["five_hour", "5-hour"], ["seven_day", "weekly"]]) {
-    if (data[key])
-      rows.push({
-        label,
-        used: data[key].utilization,
-        resetsAt: data[key].resets_at ? new Date(data[key].resets_at) : null,
-      });
+          : "weekly",
+      used: l.percent,
+      resetsAt: l.resets_at ? new Date(l.resets_at) : null,
+      windowMs: isSession ? WINDOW_MS.session : WINDOW_MS.weekly,
+      scoped: Boolean(l.scope?.model),
+    });
   }
+  return rows.filter((r) => r.resetsAt);
 }
 
-if (SHORT) {
-  console.log(rows.map((r) => `${dot(r.used)}${pct(r.used)}`).join(" ") || "no data");
-  process.exit(0);
-}
+// ── token counts from local transcripts ───────────
 
-console.log("Claude usage");
-console.log("─".repeat(46));
-
-if (rows.length === 0) {
-  console.log("  no limit data returned");
-} else {
-  const width = Math.max(...rows.map((r) => r.label.length));
-  for (const r of rows) {
-    const resets = r.resetsAt
-      ? `resets in ${humanDuration(r.resetsAt - Date.now())}`
-      : "reset time unknown";
-    console.log(
-      `  ${dot(r.used)} ${r.label.padEnd(width)}  ${pct(r.used).padStart(4)} used   ${resets}`,
-    );
-  }
-}
-
-// ── token usage ───────────────────────────────────
-// The usage API reports percentages only. Actual token counts live in the
-// local transcripts under ~/.claude/projects, one JSONL per session — the
-// same source ccusage reads.
 function newestTranscript(dir) {
   let newest = null;
   const walk = (d) => {
@@ -148,7 +198,7 @@ function sessionTokens(file) {
     try {
       entry = JSON.parse(line);
     } catch {
-      continue; // partial line while the session is being written
+      continue; // partial line while the session is still being written
     }
     const u = entry.message?.usage;
     if (!u) continue;
@@ -172,11 +222,65 @@ function sessionTokens(file) {
   return { totals, byModel };
 }
 
+// ── main ──────────────────────────────────────────
+
+let data = REFRESH ? null : readCache();
+if (!data) {
+  data = await fetchUsage();
+  if (data) writeCache(data);
+}
+
+if (!data) {
+  // Stay silent in prompt mode: a prompt should never show an error.
+  if (MODE === "prompt") process.exit(0);
+  console.error("No usage data. Is Claude Code logged in?");
+  process.exit(1);
+}
+
+if (MODE === "json") {
+  console.log(JSON.stringify(data, null, 2));
+  process.exit(0);
+}
+
+const windows = windowsFrom(data);
+
+if (MODE === "prompt") {
+  // Unscoped windows only — the prompt stays short.
+  const segs = windows
+    .filter((w) => !w.scoped)
+    .map((w) => {
+      const dot = indicator(w.used, w.resetsAt, w.windowMs);
+      const label = resetLabel(w.resetsAt, w.windowMs);
+      if (dot === "🔴") {
+        const ms = projectedExhaustion(w.used, w.resetsAt, w.windowMs);
+        if (ms !== null) return `${dot}${(ms / 3600000).toFixed(1)}h/${label}`;
+      }
+      return `${dot}${label}`;
+    });
+  console.log(segs.join(" "));
+  process.exit(0);
+}
+
+if (MODE === "short") {
+  console.log(windows.map((w) => `${indicator(w.used, w.resetsAt, w.windowMs)}${pct(w.used)}`).join(" "));
+  process.exit(0);
+}
+
+console.log("Claude usage");
+console.log("─".repeat(46));
+
+const width = Math.max(...windows.map((w) => w.label.length));
+for (const w of windows) {
+  console.log(
+    `  ${indicator(w.used, w.resetsAt, w.windowMs)} ${w.label.padEnd(width)}  ` +
+      `${pct(w.used).padStart(4)} used   resets in ${humanDuration(w.resetsAt - Date.now())}`,
+  );
+}
+
 const transcript = newestTranscript(PROJECTS);
 if (transcript) {
   const { totals, byModel } = sessionTokens(transcript.path);
   const total = totals.input + totals.cacheWrite + totals.cacheRead + totals.output;
-
   if (total > 0) {
     console.log();
     console.log("  Tokens this session");
@@ -190,22 +294,19 @@ if (transcript) {
       console.log();
       console.log("  By model (in / out)");
       for (const [model, t] of [...byModel].sort((a, b) => b[1].output - a[1].output)) {
-        const name = model.replace(/^claude-/, "");
-        console.log(`    ${name.padEnd(14)} ${fmt(t.input).padStart(12)} / ${fmt(t.output)}`);
+        console.log(
+          `    ${model.replace(/^claude-/, "").padEnd(14)} ${fmt(t.input).padStart(12)} / ${fmt(t.output)}`,
+        );
       }
     }
   }
 }
 
 const spend = data.spend;
+console.log();
 if (spend?.enabled) {
   const amount = (spend.used?.amount_minor ?? 0) / 10 ** (spend.used?.exponent ?? 2);
-  console.log();
   console.log(`  Spend: ${amount.toFixed(2)} ${spend.used?.currency || ""} (${pct(spend.percent || 0)})`);
 } else {
-  console.log();
   console.log("  Spend: not enabled (subscription plan, no usage credits)");
 }
-
-console.log();
-console.log(`  refreshed ${humanDuration(ageMs)} ago`);
