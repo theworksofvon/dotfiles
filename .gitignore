@@ -17,3 +17,6 @@ config/claude-account/accounts.json
 
 # codex rewrites config.toml (marketplace timestamps, local runtime paths)
 agents/codex/config.toml
+
+# personal git identity
+.gitconfig.local

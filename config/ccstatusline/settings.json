@@ -7,7 +7,7 @@
       {
         "id": "auth",
         "type": "custom-command",
-        "commandPath": "\"$HOME/dotfiles/bin/claude-account\"",
+        "commandPath": "\"$HOME/.dotfiles/bin/claude-account\"",
         "preserveColors": true
       },
       { "id": "sep1", "type": "separator", "character": "|" },
@@ -35,7 +35,7 @@
       {
         "id": "usage",
         "type": "custom-command",
-        "commandPath": "\"$HOME/dotfiles/bin/claude-usage\" --prompt"
+        "commandPath": "\"$HOME/.dotfiles/bin/claude-usage\" --prompt"
       }
     ],
     [
@@ -43,7 +43,7 @@
       {
         "id": "pr",
         "type": "custom-command",
-        "commandPath": "\"$HOME/dotfiles/bin/git-pr\""
+        "commandPath": "\"$HOME/.dotfiles/bin/git-pr\""
       },
       { "id": "sep3", "type": "separator", "character": "|" },
       { "id": "branch", "type": "git-branch", "color": "brightBlue" },

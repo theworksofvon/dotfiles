@@ -1,0 +1,5 @@
+# Copied to ~/.gitconfig.local by setup.sh, then never tracked.
+# Anything here overrides or extends the shared gitconfig.
+[user]
+	name = Your Name
+	email = you@example.com

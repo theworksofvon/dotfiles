@@ -1,6 +1,7 @@
-[user]
-	name = theworksofvon
-	email = jacksondavontae19@gmail.com
+# Identity lives in an untracked local file so forks don't commit as me.
+# setup.sh creates it; see git/gitconfig.local.example.
+[include]
+	path = ~/.gitconfig.local
 
 [init]
 	defaultBranch = main

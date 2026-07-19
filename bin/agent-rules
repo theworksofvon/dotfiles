@@ -11,7 +11,13 @@
 #   agent-rules --status     report what's in place, change nothing
 set -euo pipefail
 
-DOTFILES="${DOTFILES:-$HOME/dotfiles}"
+# Resolve the repo from this script's own location so it works wherever the
+# repo was cloned. $DOTFILES still wins if you set it explicitly.
+if [ -z "${DOTFILES:-}" ]; then
+  self="${BASH_SOURCE[0]}"
+  while [ -L "$self" ]; do self="$(readlink "$self")"; done
+  DOTFILES="$(cd "$(dirname "$self")/.." && pwd)"
+fi
 SOURCE="$DOTFILES/agents/AGENTS.md"
 MODE=link
 

@@ -21,8 +21,9 @@ installing, so re-running is safe and only fills in gaps.
 
 Restart your terminal when it finishes.
 
-> Clone to `~/dotfiles` — a few configs reference that path. Setup warns if you
-> don't.
+Clone anywhere — `install.sh` links `~/.dotfiles` to wherever it lives, and
+configs reference that. Your git identity goes in `~/.gitconfig.local`, which
+setup creates and never tracks, so a fork doesn't commit as me.
 
 ## What you get
 

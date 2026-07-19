@@ -45,10 +45,27 @@ link() {
   echo "  + $pretty -> $1"
 }
 
+# Config files can't compute their own location, so they reference
+# ~/.dotfiles/bin/... — a stable symlink to wherever this repo was cloned.
+# That's what lets the repo live anywhere instead of only in ~/dotfiles.
+if [ "$DOTFILES" != "$HOME/.dotfiles" ]; then
+  if $DRY_RUN; then
+    echo "Root"; echo "  would link ~/.dotfiles -> $DOTFILES"
+  else
+    ln -sfn "$DOTFILES" "$HOME/.dotfiles"
+    echo "Root"; echo "  ~/.dotfiles -> $DOTFILES"
+  fi
+fi
+
 echo "Shell"      ; link zsh/zshrc          "$HOME/.zshrc"
 echo "Git"
 link git/gitconfig        "$HOME/.gitconfig"
 link git/gitignore_global "$HOME/.gitignore_global"
+# Identity is untracked, so a fork doesn't inherit someone else's name.
+if [ ! -e "$HOME/.gitconfig.local" ] && ! $DRY_RUN; then
+  cp "$DOTFILES/git/gitconfig.local.example" "$HOME/.gitconfig.local"
+  echo "  created ~/.gitconfig.local — set your name and email there"
+fi
 echo "tmux"       ; link tmux/tmux.conf     "$HOME/.tmux.conf"
 echo "Ghostty"    ; link ghostty/config     "$HOME/.config/ghostty/config"
 echo "Neovim"     ; link nvim               "$HOME/.config/nvim"

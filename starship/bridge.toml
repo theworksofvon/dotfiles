@@ -88,14 +88,14 @@ format = "[│](dim) [$symbol$context](cyan) "
 # Claude usage: 5-hour block reset + weekly window remaining.
 # Reads a 5-minute file cache, so this costs ~25ms per prompt.
 [custom.claude]
-command = '"$HOME/dotfiles/bin/claude-usage" --prompt'
+command = '"$HOME/.dotfiles/bin/claude-usage" --prompt'
 when = true
 format = "[$output](blue)[ │](dim) "
 
 # Codex weekly quota, read from its local session logs (see bin/codex-usage).
 # Hidden when Codex has never run on this machine.
 [custom.codex]
-command = '"$HOME/dotfiles/bin/codex-usage" --short'
+command = '"$HOME/.dotfiles/bin/codex-usage" --short'
 when = 'test -d "$HOME/.codex/sessions"'
 format = "[ᗢ $output](orange)[ │](dim) "
 

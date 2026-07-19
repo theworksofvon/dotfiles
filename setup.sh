@@ -53,11 +53,9 @@ fi
 
 step "Platform: $OS/$ARCH (brew prefix: $BREW_PREFIX)"
 
-if [ "$DOTFILES" != "$HOME/dotfiles" ]; then
-  warn "repo is at $DOTFILES, but configs reference \$HOME/dotfiles."
-  warn "Clone to ~/dotfiles, or update the paths in claude/settings.json"
-  warn "and starship/bridge.toml."
-fi
+# The repo can live anywhere: install.sh links ~/.dotfiles to it, and configs
+# reference that stable path rather than a hardcoded location.
+step "Repo: $DOTFILES"
 
 # ── prerequisites ─────────────────────────────────
 if $DO_INSTALL; then
@@ -131,6 +129,28 @@ if have mise; then
   $DRY_RUN || ok "installed per mise/config.toml"
 else
   warn "mise not found — skipping. Re-run setup.sh after installing it."
+fi
+
+# ── git identity ──────────────────────────────────
+# Untracked, so a fresh clone has no name until one is set. Ask rather than
+# leave placeholder values that would silently author commits as "Your Name".
+step "Git identity"
+if [ -n "$(git config --get user.email 2>/dev/null)" ] &&
+   [ "$(git config --get user.email)" != "you@example.com" ]; then
+  ok "$(git config --get user.name) <$(git config --get user.email)>"
+elif $DRY_RUN; then
+  ok "would prompt for name and email"
+elif [ -t 0 ]; then
+  read -r -p "  Your name:  " _name
+  read -r -p "  Your email: " _email
+  if [ -n "$_name" ] && [ -n "$_email" ]; then
+    printf '# Personal identity — untracked.\n[user]\n\tname = %s\n\temail = %s\n' \
+      "$_name" "$_email" > "$HOME/.gitconfig.local"
+    act "wrote ~/.gitconfig.local"
+  fi
+  unset _name _email
+else
+  warn "set your name and email in ~/.gitconfig.local"
 fi
 
 step "ruff (Python formatting)"
