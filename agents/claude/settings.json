@@ -27,7 +27,19 @@
       "Read(**/*.pem)",
       "Read(**/hosts.yml)"
     ],
-    "ask": [],
+    "ask": [
+      "Edit(../**)",
+      "Write(../**)",
+      "MultiEdit(../**)",
+      "Edit(~/.zshrc)",
+      "Edit(~/.gitconfig)",
+      "Edit(~/.claude/**)",
+      "Edit(~/.codex/**)",
+      "Edit(~/.cursor/**)",
+      "Edit(~/.config/**)",
+      "Write(~/.config/**)",
+      "Bash(sudo:*)"
+    ],
     "allow": []
   },
   "mcpServers": {
