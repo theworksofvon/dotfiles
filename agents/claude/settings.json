@@ -122,6 +122,17 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/.dotfiles/bin/guard-main\""
+          }
+        ]
+      }
     ]
   },
   "enabledPlugins": {

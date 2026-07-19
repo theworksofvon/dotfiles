@@ -5,6 +5,13 @@ model = "gpt-5.6-sol"
 model_reasoning_effort = "high"
 service_tier = "default"
 
+# ── guardrails ────────────────────────────────────
+# Writes are confined to the workspace; anything outside it requires approval.
+# These are top-level keys, so they must appear before any [table] header —
+# placing them lower makes TOML read them as part of the preceding table.
+sandbox_mode = "workspace-write"
+approval_policy = "on-request"
+
 [marketplaces.openai-bundled]
 last_updated = "2026-07-14T23:59:36Z"
 source_type = "local"
@@ -40,6 +47,7 @@ enabled = true
 enabled = true
 
 [features]
+hooks = true
 js_repl = false
 
 [mcp_servers.node_repl]
@@ -147,12 +155,16 @@ status_line = [
 command = "context7-mcp"
 args = []
 
-# ── guardrails ────────────────────────────────────
-# Writes are confined to the workspace. Anything outside it — home dotfiles,
-# other repos, system paths — requires explicit approval. This is the Codex
-# equivalent of the ask rules in agents/claude/settings.json, and it's enforced
-# by the sandbox rather than by prompting, so it's the stronger of the two.
-sandbox_mode = "workspace-write"
 
-# The model escalates to you when it wants something the sandbox won't allow.
-approval_policy = "on-request"
+# ── protected branches ────────────────────────────
+# guard-main blocks pushes and merges that would land on main. A static rule
+# can't do this: `git push` while checked out on main names no branch, so the
+# hook has to inspect the repo state before the command runs.
+
+[[hooks.PreToolUse]]
+matcher = "^Bash$"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = "$HOME/.dotfiles/bin/guard-main"
+timeout = 10

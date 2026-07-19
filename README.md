@@ -66,6 +66,8 @@ a bad package to be caught upstream. Node projects want
 Claude, Codex, and Cursor are each restricted from writing outside the project
 without approval, and from destructive commands — recursive deletes, force
 pushes, history rewrites — plus reads of `.env`, SSH keys, and credentials.
+Pre-tool hooks also block agent pushes and merges to protected branches,
+including implicit `git push` commands issued while checked out on `main`.
 
 Claude uses `ask`/`deny` rules; Codex and Cursor use their sandboxes, which
 enforce it rather than prompting. opencode is supported but not covered.
