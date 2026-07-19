@@ -20,6 +20,7 @@ import { homedir } from "os";
 import { join } from "path";
 
 const SESSIONS = join(homedir(), ".codex", "sessions");
+const GLOBAL_STATE = join(homedir(), ".codex", ".codex-global-state.json");
 const args = process.argv.slice(2);
 const SHORT = args.includes("--short");
 const JSON_OUT = args.includes("--json");
@@ -105,6 +106,36 @@ function dot(usedPercent, resetsAt, windowMinutes) {
   return ratio < 1.0 ? "🟢" : ratio < 1.3 ? "🟡" : "🔴";
 }
 
+/**
+ * Rate-limit resets — the allowance for clearing a limit early.
+ *
+ * There is no live source for this: the session logs carry credits but no
+ * reset count. The only record is what Codex's UI stored when you last
+ * dismissed its announcement, so the count is a snapshot from that moment and
+ * is reported with its age rather than presented as current.
+ */
+function resetAllowance() {
+  let state;
+  try {
+    state = JSON.parse(readFileSync(GLOBAL_STATE, "utf8"));
+  } catch {
+    return null;
+  }
+
+  const byAccount =
+    state?.["electron-persisted-atom-state"]?.[
+      "rate-limit-reset-home-announcement-dismissal-by-account-id"
+    ];
+  if (!byAccount) return null;
+
+  for (const entry of Object.values(byAccount)) {
+    if (typeof entry?.availableCount === "number") {
+      return { count: entry.availableCount, asOfMs: entry.dismissedAtMs || null };
+    }
+  }
+  return null;
+}
+
 const newest = newestSessionFile(SESSIONS);
 if (!newest) {
   console.error(`No Codex sessions found under ${SESSIONS}`);
@@ -170,9 +201,17 @@ if (usage.total_tokens) {
 }
 
 const credits = limits.credits;
-if (credits && !credits.unlimited) {
+const resets = resetAllowance();
+
+if ((credits && !credits.unlimited) || resets) {
   console.log();
-  console.log(`  Credits: ${credits.has_credits ? credits.balance : "none"}`);
+  if (credits && !credits.unlimited) {
+    console.log(`  Credits: ${credits.has_credits ? credits.balance : "none"}`);
+  }
+  if (resets) {
+    const age = resets.asOfMs ? ` (as of ${humanDuration(Date.now() - resets.asOfMs)} ago)` : "";
+    console.log(`  Limit resets available: ${resets.count}${age}`);
+  }
 }
 
 console.log();
