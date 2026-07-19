@@ -81,6 +81,9 @@ const flags = {
   debug: process.argv.includes("--debug"),
   forceRefresh: process.argv.includes("--force-refresh"),
   help: process.argv.includes("--help") || process.argv.includes("-h"),
+  // Model-scoped weekly quota (e.g. Fable) — off by default to keep the
+  // prompt short; `claude-usage` passes --scoped to show it.
+  scoped: process.argv.includes("--scoped"),
 };
 
 /**
@@ -557,6 +560,8 @@ const sevenDayDisplay = buildSegmentDisplay(
 // null on current accounts, so reading that alone shows nothing.
 // Resets alongside the weekly window, so show percent used rather than a time.
 function buildScopedModelDisplay(data) {
+  if (!flags.scoped) return "";
+
   const entry = (data.limits || []).find(
     (l) => l.kind === "weekly_scoped" && l.scope?.model?.display_name,
   );

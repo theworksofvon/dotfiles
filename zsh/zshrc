@@ -102,7 +102,7 @@ plugins=(git)
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
-export PATH="$HOME/.local/bin:$PATH"
+export PATH="$HOME/dotfiles/bin:$HOME/.local/bin:$PATH"
 
 # Homebrew — prefix differs by platform (Apple Silicon / Intel / Linux).
 for _brew in /opt/homebrew/bin/brew /usr/local/bin/brew /home/linuxbrew/.linuxbrew/bin/brew; do
@@ -141,6 +141,14 @@ command -v mise >/dev/null 2>&1 && eval "$(mise activate zsh)"
 # Starship prompt (replaces the Oh My Zsh ZSH_THEME above).
 # Falls back to the oh-my-zsh theme if Starship isn't installed yet.
 command -v starship >/dev/null 2>&1 && eval "$(starship init zsh)"
+
+# AI usage at a glance: `usage` for both, or claude-usage / codex-usage alone.
+# Both live in ~/dotfiles/bin (on PATH above).
+usage() {
+  claude-usage "$@"
+  echo
+  codex-usage "$@"
+}
 
 # Switch between prompt presets: `prompt-style bridge` or `prompt-style mission`
 # Re-points the symlink rather than copying, so editing ~/.config/starship.toml

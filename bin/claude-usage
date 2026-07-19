@@ -1,0 +1,125 @@
+#!/usr/bin/env node
+/**
+ * claude-usage — report Claude subscription limits in full.
+ *
+ * The prompt shows a compact version; this is the detailed view: every window
+ * including per-model quotas, reset times, and credit balance.
+ *
+ * Data comes from Anthropic's OAuth usage endpoint via cc-time-left.mjs, which
+ * handles the Keychain token and caching. This refreshes that cache, then
+ * formats what it wrote.
+ *
+ *   claude-usage           human-readable summary
+ *   claude-usage --short   one line
+ *   claude-usage --json    raw API response
+ */
+
+import { execFileSync } from "child_process";
+import { readFileSync } from "fs";
+import { homedir } from "os";
+import { join } from "path";
+
+const CACHE = join(homedir(), ".cache", "cc-time-left", "usage-data.json");
+const FETCHER = join(homedir(), "dotfiles", "vendor", "gsong", "cc-time-left.mjs");
+
+const args = process.argv.slice(2);
+const SHORT = args.includes("--short");
+const JSON_OUT = args.includes("--json");
+
+// cc-time-left owns the Keychain lookup and cache; refresh through it rather
+// than duplicating that logic. A failure here is fine if a cache already exists.
+try {
+  execFileSync("node", [FETCHER, "--force-refresh"], { stdio: "ignore" });
+} catch {
+  /* offline or not logged in — fall back to whatever is cached */
+}
+
+let cached;
+try {
+  cached = JSON.parse(readFileSync(CACHE, "utf8"));
+} catch {
+  console.error("No usage data available. Is Claude Code logged in?");
+  process.exit(1);
+}
+
+const data = cached.data || {};
+const ageMs = Date.now() - (cached.timestamp || 0);
+
+if (JSON_OUT) {
+  console.log(JSON.stringify(data, null, 2));
+  process.exit(0);
+}
+
+const pct = (n) => `${Math.round(n)}%`;
+const dot = (p) => (p < 50 ? "🟢" : p < 80 ? "🟡" : "🔴");
+
+function humanDuration(ms) {
+  const abs = Math.abs(ms);
+  const d = Math.floor(abs / 86400000);
+  const h = Math.floor((abs % 86400000) / 3600000);
+  const m = Math.floor((abs % 3600000) / 60000);
+  if (d) return `${d}d ${h}h`;
+  if (h) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+// Prefer limits[] — it carries per-model scopes the flat fields don't.
+const rows = [];
+for (const l of data.limits || []) {
+  const label =
+    l.kind === "session"
+      ? "5-hour"
+      : l.kind === "weekly_all"
+        ? "weekly"
+        : l.scope?.model?.display_name
+          ? `weekly · ${l.scope.model.display_name}`
+          : l.kind;
+  rows.push({ label, used: l.percent, resetsAt: l.resets_at ? new Date(l.resets_at) : null });
+}
+
+if (rows.length === 0) {
+  for (const [key, label] of [["five_hour", "5-hour"], ["seven_day", "weekly"]]) {
+    if (data[key])
+      rows.push({
+        label,
+        used: data[key].utilization,
+        resetsAt: data[key].resets_at ? new Date(data[key].resets_at) : null,
+      });
+  }
+}
+
+if (SHORT) {
+  console.log(rows.map((r) => `${dot(r.used)}${pct(r.used)}`).join(" ") || "no data");
+  process.exit(0);
+}
+
+console.log("Claude usage");
+console.log("─".repeat(46));
+
+if (rows.length === 0) {
+  console.log("  no limit data returned");
+} else {
+  const width = Math.max(...rows.map((r) => r.label.length));
+  for (const r of rows) {
+    const resets = r.resetsAt
+      ? `resets in ${humanDuration(r.resetsAt - Date.now())}`
+      : "reset time unknown";
+    console.log(
+      `  ${dot(r.used)} ${r.label.padEnd(width)}  ${pct(r.used).padStart(4)} used   ${resets}`,
+    );
+  }
+}
+
+const spend = data.spend;
+if (spend?.enabled) {
+  const amount = (spend.used?.amount_minor ?? 0) / 10 ** (spend.used?.exponent ?? 2);
+  console.log();
+  console.log(`  Spend: ${amount.toFixed(2)} ${spend.used?.currency || ""} (${pct(spend.percent || 0)})`);
+} else {
+  console.log();
+  console.log("  Spend: not enabled (subscription plan, no usage credits)");
+}
+
+console.log();
+console.log(`  refreshed ${humanDuration(ageMs)} ago`);
+console.log("  token-level cost breakdown: npx ccusage@latest");

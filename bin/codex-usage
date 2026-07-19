@@ -1,0 +1,159 @@
+#!/usr/bin/env node
+/**
+ * codex-usage — report Codex quota and token usage from local session logs.
+ *
+ * Codex has no non-interactive usage command: `/status` works only inside a
+ * running session. It does, however, write `rate_limits` into every
+ * `token_count` event in ~/.codex/sessions/**\/*.jsonl, so the most recent
+ * event is a usable snapshot.
+ *
+ * Caveat: this reflects the last time Codex ran, not this instant. Staleness
+ * is reported so a days-old number is never mistaken for a live one.
+ *
+ *   codex-usage           human-readable summary
+ *   codex-usage --short   one line, for a prompt or status bar
+ *   codex-usage --json    raw snapshot
+ */
+
+import { readFileSync, readdirSync, statSync } from "fs";
+import { homedir } from "os";
+import { join } from "path";
+
+const SESSIONS = join(homedir(), ".codex", "sessions");
+const args = process.argv.slice(2);
+const SHORT = args.includes("--short");
+const JSON_OUT = args.includes("--json");
+
+// Walk the date-nested session tree and return the most recently modified log.
+function newestSessionFile(dir) {
+  let newest = null;
+  const walk = (d) => {
+    let entries;
+    try {
+      entries = readdirSync(d, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      const p = join(d, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith(".jsonl")) {
+        const { mtimeMs } = statSync(p);
+        if (!newest || mtimeMs > newest.mtimeMs) newest = { path: p, mtimeMs };
+      }
+    }
+  };
+  walk(dir);
+  return newest;
+}
+
+// The last token_count event holds cumulative usage and current rate limits.
+function lastTokenCount(file) {
+  const lines = readFileSync(file, "utf8").split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (!lines[i].includes('"token_count"')) continue;
+    try {
+      const payload = JSON.parse(lines[i]).payload;
+      if (payload?.type === "token_count") return payload;
+    } catch {
+      /* partial or malformed line — keep scanning backwards */
+    }
+  }
+  return null;
+}
+
+const fmt = (n) => n.toLocaleString("en-US");
+const pct = (n) => `${Math.round(n)}%`;
+
+function humanDuration(ms) {
+  const abs = Math.abs(ms);
+  const d = Math.floor(abs / 86400000);
+  const h = Math.floor((abs % 86400000) / 3600000);
+  const m = Math.floor((abs % 3600000) / 60000);
+  if (d) return `${d}d ${h}h`;
+  if (h) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+function windowLabel(minutes) {
+  if (minutes % 10080 === 0) return `${minutes / 10080}-week`;
+  if (minutes % 1440 === 0) return `${minutes / 1440}-day`;
+  if (minutes % 60 === 0) return `${minutes / 60}-hour`;
+  return `${minutes}-minute`;
+}
+
+// Green under 50%, yellow under 80%, red beyond.
+const dot = (p) => (p < 50 ? "🟢" : p < 80 ? "🟡" : "🔴");
+
+const newest = newestSessionFile(SESSIONS);
+if (!newest) {
+  console.error(`No Codex sessions found under ${SESSIONS}`);
+  process.exit(1);
+}
+
+const info = lastTokenCount(newest.path);
+if (!info) {
+  console.error("No token_count event found in the most recent session.");
+  process.exit(1);
+}
+
+const limits = info.rate_limits || {};
+const usage = info.info?.total_token_usage || {};
+const ageMs = Date.now() - newest.mtimeMs;
+
+if (JSON_OUT) {
+  console.log(JSON.stringify({ ...info, _source: newest.path, _ageMs: ageMs }, null, 2));
+  process.exit(0);
+}
+
+const windows = ["primary", "secondary"]
+  .map((k) => limits[k])
+  .filter(Boolean)
+  .map((w) => ({
+    label: windowLabel(w.window_minutes),
+    used: w.used_percent,
+    resetsAt: w.resets_at ? new Date(w.resets_at * 1000) : null,
+  }));
+
+if (SHORT) {
+  const segs = windows.map((w) => `${dot(w.used)}${pct(w.used)}`);
+  console.log(segs.join(" ") || "no limit data");
+  process.exit(0);
+}
+
+console.log(`Codex usage${limits.plan_type ? `  ·  plan: ${limits.plan_type}` : ""}`);
+console.log("─".repeat(46));
+
+if (windows.length === 0) {
+  console.log("  no rate-limit data in the last session");
+} else {
+  for (const w of windows) {
+    const resets = w.resetsAt
+      ? `resets in ${humanDuration(w.resetsAt - Date.now())}`
+      : "reset time unknown";
+    console.log(
+      `  ${dot(w.used)} ${w.label.padEnd(8)} ${pct(w.used).padStart(4)} used   ${resets}`,
+    );
+  }
+}
+
+if (usage.total_tokens) {
+  console.log();
+  console.log("  Tokens this session");
+  console.log(`    input     ${fmt(usage.input_tokens || 0).padStart(12)}`);
+  console.log(`    cached    ${fmt(usage.cached_input_tokens || 0).padStart(12)}`);
+  console.log(`    output    ${fmt(usage.output_tokens || 0).padStart(12)}`);
+  if (usage.reasoning_output_tokens)
+    console.log(`    reasoning ${fmt(usage.reasoning_output_tokens).padStart(12)}`);
+  console.log(`    total     ${fmt(usage.total_tokens).padStart(12)}`);
+}
+
+const credits = limits.credits;
+if (credits && !credits.unlimited) {
+  console.log();
+  console.log(`  Credits: ${credits.has_credits ? credits.balance : "none"}`);
+}
+
+console.log();
+console.log(`  snapshot from ${humanDuration(ageMs)} ago (last Codex session)`);
+if (ageMs > 86400000) console.log("  ⚠ over a day old — run Codex to refresh");
