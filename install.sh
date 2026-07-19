@@ -54,9 +54,14 @@ echo "Ghostty"    ; link ghostty/config     "$HOME/.config/ghostty/config"
 echo "mise"       ; link mise/config.toml   "$HOME/.config/mise/config.toml"
 echo "Claude Code"
 link claude/settings.json "$HOME/.claude/settings.json"
-link claude/CLAUDE.md     "$HOME/.claude/CLAUDE.md"
 link config/ccstatusline/settings.json  "$HOME/.config/ccstatusline/settings.json"
 link config/cc-auth-status/accounts.json "$HOME/.config/cc-auth-status/accounts.json"
+
+# One instructions file, two agents: Claude reads CLAUDE.md, Codex reads
+# AGENTS.md. Both point at the same source so they can't drift apart.
+echo "Agent instructions"
+link ai/instructions.md "$HOME/.claude/CLAUDE.md"
+link ai/instructions.md "$HOME/.codex/AGENTS.md"
 
 echo "Starship"
 link starship/bridge.toml  "$HOME/.config/starship/bridge.toml"

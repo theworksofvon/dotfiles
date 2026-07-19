@@ -82,8 +82,28 @@ function windowLabel(minutes) {
   return `${minutes}-minute`;
 }
 
-// Green under 50%, yellow under 80%, red beyond.
-const dot = (p) => (p < 50 ? "🟢" : p < 80 ? "🟡" : "🔴");
+// Burn rate, not raw percentage — matching the Claude meter. Spending 43% of a
+// weekly quota is fine on day six and alarming in the first hour, so compare
+// quota consumed against time elapsed rather than using a fixed threshold.
+//   under 1.0x  on pace or better
+//   under 1.3x  slightly ahead
+//   beyond      will run out early
+function dot(usedPercent, resetsAt, windowMinutes) {
+  if (!resetsAt || !windowMinutes) {
+    return usedPercent < 50 ? "🟢" : usedPercent < 80 ? "🟡" : "🔴";
+  }
+
+  const windowMs = windowMinutes * 60000;
+  const elapsedMs = windowMs - (resetsAt.getTime() - Date.now());
+  const elapsedPercent = (elapsedMs / windowMs) * 100;
+
+  // Too early to judge: ratios are meaningless in the first slice of a window.
+  if (elapsedPercent < 10 && usedPercent < 15) return "🟢";
+  if (elapsedPercent <= 0) return "🟢";
+
+  const ratio = usedPercent / elapsedPercent;
+  return ratio < 1.0 ? "🟢" : ratio < 1.3 ? "🟡" : "🔴";
+}
 
 const newest = newestSessionFile(SESSIONS);
 if (!newest) {
@@ -111,12 +131,13 @@ const windows = ["primary", "secondary"]
   .filter(Boolean)
   .map((w) => ({
     label: windowLabel(w.window_minutes),
+    windowMinutes: w.window_minutes,
     used: w.used_percent,
     resetsAt: w.resets_at ? new Date(w.resets_at * 1000) : null,
   }));
 
 if (SHORT) {
-  const segs = windows.map((w) => `${dot(w.used)}${pct(w.used)}`);
+  const segs = windows.map((w) => `${dot(w.used, w.resetsAt, w.windowMinutes)}${pct(w.used)}`);
   console.log(segs.join(" ") || "no limit data");
   process.exit(0);
 }
@@ -132,7 +153,7 @@ if (windows.length === 0) {
       ? `resets in ${humanDuration(w.resetsAt - Date.now())}`
       : "reset time unknown";
     console.log(
-      `  ${dot(w.used)} ${w.label.padEnd(8)} ${pct(w.used).padStart(4)} used   ${resets}`,
+      `  ${dot(w.used, w.resetsAt, w.windowMinutes)} ${w.label.padEnd(8)} ${pct(w.used).padStart(4)} used   ${resets}`,
     );
   }
 }
