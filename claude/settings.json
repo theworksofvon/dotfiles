@@ -4,7 +4,7 @@
   "theme": "dark",
   "statusLine": {
     "type": "command",
-    "command": "node $HOME/dotfiles/vendor/gsong/cc-time-left.mjs",
+    "command": "node \"$HOME/dotfiles/vendor/gsong/cc-time-left.mjs\"",
     "padding": 0
   },
   "hooks": {
@@ -13,7 +13,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/dotfiles/vendor/gsong/cc-notify.mjs"
+            "command": "\"$HOME/dotfiles/vendor/gsong/cc-notify.mjs\""
           }
         ]
       }
@@ -23,7 +23,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/dotfiles/vendor/gsong/cc-notify.mjs"
+            "command": "\"$HOME/dotfiles/vendor/gsong/cc-notify.mjs\""
           }
         ]
       }
@@ -34,7 +34,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "file=$(jq -r '.tool_input.file_path' /dev/stdin); case \"$file\" in *.py) \"$HOME/.local/bin/ruff\" check --fix \"$file\"; \"$HOME/.local/bin/ruff\" format \"$file\";; *.sql) \"$HOME/.local/share/mise/shims/sqlfluff\" fix --force \"$file\";; *.ts|*.tsx|*.js|*.jsx|*.mjs|*.cjs|*.json|*.jsonc|*.css|*.scss|*.html|*.md|*.yaml|*.yml) \"$HOME/.local/share/mise/shims/prettier\" --write --ignore-unknown \"$file\";; esac"
+            "command": "export PATH=\"$HOME/.local/share/mise/shims:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"; file=$(jq -r '.tool_input.file_path' /dev/stdin); [ -f \"$file\" ] || exit 0; case \"$file\" in *.py) command -v ruff >/dev/null && { ruff check --fix \"$file\"; ruff format \"$file\"; } ;; *.sql) command -v sqlfluff >/dev/null && sqlfluff fix --force \"$file\" ;; *.ts|*.tsx|*.js|*.jsx|*.mjs|*.cjs|*.json|*.jsonc|*.css|*.scss|*.html|*.md|*.yaml|*.yml) command -v prettier >/dev/null && prettier --write --ignore-unknown \"$file\" ;; esac; exit 0"
           }
         ]
       }

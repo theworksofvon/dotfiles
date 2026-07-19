@@ -72,7 +72,7 @@ ZSH_THEME="robbyrussell"
 # Add wisely, as too many plugins slow down shell startup.
 plugins=(git)
 
-source $ZSH/oh-my-zsh.sh
+[ -s "$ZSH/oh-my-zsh.sh" ] && source "$ZSH/oh-my-zsh.sh"
 
 # User configuration
 
@@ -103,9 +103,21 @@ source $ZSH/oh-my-zsh.sh
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 export PATH="$HOME/.local/bin:$PATH"
+
+# Homebrew — prefix differs by platform (Apple Silicon / Intel / Linux).
+for _brew in /opt/homebrew/bin/brew /usr/local/bin/brew /home/linuxbrew/.linuxbrew/bin/brew; do
+  [ -x "$_brew" ] && eval "$("$_brew" shellenv)" && break
+done
+unset _brew
+
+# nvm — only if installed via Homebrew.
 export NVM_DIR="$HOME/.nvm"
-[ -s "$(brew --prefix nvm)/nvm.sh" ] && . "$(brew --prefix nvm)/nvm.sh"
-[ -s "$(brew --prefix nvm)/etc/bash_completion.d/nvm" ] && . "$(brew --prefix nvm)/etc/bash_completion.d/nvm"
+if command -v brew >/dev/null 2>&1; then
+  _nvm="$(brew --prefix nvm 2>/dev/null || true)"
+  [ -s "$_nvm/nvm.sh" ] && . "$_nvm/nvm.sh"
+  [ -s "$_nvm/etc/bash_completion.d/nvm" ] && . "$_nvm/etc/bash_completion.d/nvm"
+  unset _nvm
+fi
 
 # bun completions
 [ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
@@ -116,11 +128,11 @@ export PATH="$BUN_INSTALL/bin:$PATH"
 
 # mise — manages CLI tools (prettier, sqlfluff). Node stays with nvm above,
 # since mise's config declares no node/python runtime.
-command -v mise >/dev/null 2>&1 || export PATH="/opt/homebrew/bin:$PATH"
-eval "$(mise activate zsh)"
+command -v mise >/dev/null 2>&1 && eval "$(mise activate zsh)"
 
-# Starship prompt (replaces the Oh My Zsh ZSH_THEME above)
-eval "$(starship init zsh)"
+# Starship prompt (replaces the Oh My Zsh ZSH_THEME above).
+# Falls back to the oh-my-zsh theme if Starship isn't installed yet.
+command -v starship >/dev/null 2>&1 && eval "$(starship init zsh)"
 
 # Switch between prompt presets: `prompt-style bridge` or `prompt-style mission`
 # Re-points the symlink rather than copying, so editing ~/.config/starship.toml
