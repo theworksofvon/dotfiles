@@ -7,6 +7,36 @@
     "command": "ccstatusline",
     "padding": 0
   },
+  "permissions": {
+    "deny": [
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf ~*)",
+      "Bash(rm -rf $HOME*)",
+      "Bash(sudo rm:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git reset --hard origin/main:*)",
+      "Bash(git filter-branch:*)",
+      "Bash(:(){:|:&};:)",
+      "Bash(mkfs:*)",
+      "Bash(dd if=:*)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(**/.aws/credentials)",
+      "Read(**/.ssh/id_*)",
+      "Read(**/*.pem)",
+      "Read(**/hosts.yml)"
+    ],
+    "ask": [],
+    "allow": []
+  },
+  "mcpServers": {
+    "context7": {
+      "command": "context7-mcp",
+      "args": [],
+      "env": {}
+    }
+  },
   "hooks": {
     "Stop": [
       {
@@ -34,7 +64,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "export PATH=\"$HOME/.local/share/mise/shims:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"; file=$(jq -r '.tool_input.file_path' /dev/stdin); [ -f \"$file\" ] || exit 0; case \"$file\" in *.py) command -v ruff >/dev/null && { ruff check --fix \"$file\"; ruff format \"$file\"; } ;; *.sql) command -v sqlfluff >/dev/null && sqlfluff fix --force \"$file\" ;; *.ts|*.tsx|*.js|*.jsx|*.mjs|*.cjs|*.json|*.jsonc|*.css|*.scss|*.html|*.md|*.yaml|*.yml) command -v prettier >/dev/null && prettier --write --ignore-unknown \"$file\" ;; esac; exit 0"
+            "command": "export PATH=\"$HOME/.local/share/mise/shims:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"; file=$(jq -r '.tool_input.file_path' /dev/stdin); [ -f \"$file\" ] || exit 0; case \"$file\" in *.py) command -v ruff >/dev/null && { ruff check --fix \"$file\"; ruff format \"$file\"; } ;; *.rs) command -v rustfmt >/dev/null && rustfmt --edition 2021 \"$file\" ;; *.c|*.cc|*.cpp|*.cxx|*.h|*.hh|*.hpp) command -v clang-format >/dev/null && clang-format -i \"$file\" ;; *.sql) command -v sqlfluff >/dev/null && sqlfluff fix --force \"$file\" ;; *.ts|*.tsx|*.js|*.jsx|*.mjs|*.cjs|*.json|*.jsonc|*.css|*.scss|*.html|*.md|*.yaml|*.yml) command -v prettier >/dev/null && prettier --write --ignore-unknown \"$file\" ;; esac; exit 0"
           }
         ]
       }

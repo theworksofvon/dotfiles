@@ -140,3 +140,9 @@ status_line = [
   "five-hour-limit",
   "weekly-limit",
 ]
+
+# Live library documentation, so agents work from current APIs rather than
+# remembered ones. Same server is configured for Claude, Cursor, and opencode.
+[mcp_servers.context7]
+command = "context7-mcp"
+args = []

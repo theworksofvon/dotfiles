@@ -22,6 +22,9 @@ brew "git"
 brew "git-delta"                 # renders git diffs
 brew "gh"                        # GitHub CLI; git-pr and auth depend on it
 brew "neovim"
+brew "clang-format"              # C++ formatting for the agent hook
+brew "llvm"                      # clangd, for real C++ diagnostics
+brew "rust-analyzer"             # Rust language server
 brew "tmux"
 brew "mise"                      # runtimes and CLI tools
 brew "jq"                        # the formatter hook parses hook payloads with it

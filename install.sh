@@ -118,6 +118,7 @@ fi
 
 if [ -d "$HOME/.cursor" ] || command -v cursor-agent >/dev/null 2>&1; then
   link agents/cursor/cli-config.json "$HOME/.cursor/cli-config.json"
+  link agents/cursor/mcp.json        "$HOME/.cursor/mcp.json"
   # Cursor has no global instructions file — User Rules are UI-only and
   # AGENTS.md is read per-project. `agent-rules` drops it into a project.
   echo "  ${dim}·${reset} Cursor: run 'agent-rules' in a project for AGENTS.md"
