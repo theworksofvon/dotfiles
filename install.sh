@@ -106,6 +106,16 @@ else
   echo "  ${dim}·${reset} Codex not installed, skipped"
 fi
 
+if [ -d "$HOME/.opencode" ] || [ -d "$HOME/.config/opencode" ] || command -v opencode >/dev/null 2>&1; then
+  # opencode reads global rules from ~/.config/opencode/AGENTS.md, so unlike
+  # Cursor it needs no per-project step.
+  link agents/AGENTS.md              "$HOME/.config/opencode/AGENTS.md"
+  link agents/opencode/opencode.json "$HOME/.config/opencode/opencode.json"
+  link agents/opencode/plugins/notify.js "$HOME/.config/opencode/plugins/notify.js"
+else
+  echo "  ${dim}·${reset} opencode not installed, skipped"
+fi
+
 if [ -d "$HOME/.cursor" ] || command -v cursor-agent >/dev/null 2>&1; then
   link agents/cursor/cli-config.json "$HOME/.cursor/cli-config.json"
   # Cursor has no global instructions file — User Rules are UI-only and

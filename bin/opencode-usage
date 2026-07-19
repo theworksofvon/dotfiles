@@ -1,0 +1,134 @@
+#!/usr/bin/env node
+/**
+ * opencode-usage — token spend for opencode.
+ *
+ * Unlike Claude and Codex, opencode has a built-in `stats` command, so this
+ * wraps it rather than reimplementing anything. It normalizes the output to
+ * match the other usage tools.
+ *
+ * The numbers mean something different, though: opencode talks to whichever
+ * provider you configured, so there is no subscription quota to burn through.
+ * It reports cost and tokens, not a percentage of a limit — which is why
+ * there's no burn-rate indicator here.
+ *
+ *   opencode-usage            summary
+ *   opencode-usage --short    one line, for a prompt or status bar
+ *   opencode-usage --json     parsed values as JSON
+ *   opencode-usage --days N   restrict to the last N days
+ */
+
+import { execFileSync } from "child_process";
+import { existsSync } from "fs";
+import { homedir } from "os";
+import { join } from "path";
+
+const args = process.argv.slice(2);
+const has = (f) => args.includes(`--${f}`);
+const opt = (f) => {
+  const i = args.indexOf(`--${f}`);
+  return i >= 0 ? args[i + 1] : undefined;
+};
+
+// The installer puts it in ~/.opencode/bin, which isn't always on PATH.
+function opencodeBin() {
+  const candidates = [
+    join(homedir(), ".opencode", "bin", "opencode"),
+    "/opt/homebrew/bin/opencode",
+    "/usr/local/bin/opencode",
+  ];
+  for (const c of candidates) if (existsSync(c)) return c;
+  try {
+    return execFileSync("command", ["-v", "opencode"], { encoding: "utf8", shell: true }).trim();
+  } catch {
+    return null;
+  }
+}
+
+const bin = opencodeBin();
+if (!bin) {
+  if (has("short")) process.exit(0); // stay silent in a prompt
+  console.error("opencode not found.");
+  process.exit(1);
+}
+
+const statsArgs = ["stats"];
+const days = opt("days");
+if (days) statsArgs.push("--days", days);
+
+let raw;
+try {
+  raw = execFileSync(bin, statsArgs, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+} catch {
+  if (has("short")) process.exit(0);
+  console.error("Could not read opencode stats.");
+  process.exit(1);
+}
+
+/**
+ * `stats` renders a box-drawing table with no machine-readable flag, so pull
+ * "│Label   value │" rows out of it. Tolerant by design: an unfamiliar row is
+ * skipped rather than breaking the whole report.
+ */
+function parseTable(text) {
+  const out = {};
+  for (const line of text.split("\n")) {
+    const m = line.match(/^\s*│\s*(.+?)\s{2,}(\S+)\s*│\s*$/);
+    if (!m) continue;
+    const [, label, value] = m;
+    if (/^[A-Z\s&]+$/.test(label)) continue; // section headers
+    out[label.trim()] = value.trim();
+  }
+  return out;
+}
+
+const stats = parseTable(raw);
+const num = (k) => Number(String(stats[k] ?? "0").replace(/[$,]/g, "")) || 0;
+const fmt = (n) => n.toLocaleString("en-US");
+
+const data = {
+  sessions: num("Sessions"),
+  messages: num("Messages"),
+  days: num("Days"),
+  cost: num("Total Cost"),
+  costPerDay: num("Avg Cost/Day"),
+  input: num("Input"),
+  output: num("Output"),
+  cacheRead: num("Cache Read"),
+  cacheWrite: num("Cache Write"),
+};
+data.totalTokens = data.input + data.output + data.cacheRead + data.cacheWrite;
+
+if (has("json")) {
+  console.log(JSON.stringify(data, null, 2));
+  process.exit(0);
+}
+
+if (has("short")) {
+  // No quota to report against, so lead with spend.
+  if (data.sessions === 0) process.exit(0);
+  console.log(`$${data.cost.toFixed(2)}`);
+  process.exit(0);
+}
+
+console.log(`opencode usage${days ? `  ·  last ${days} days` : ""}`);
+console.log("─".repeat(46));
+
+if (data.sessions === 0) {
+  console.log("  no sessions recorded yet");
+  process.exit(0);
+}
+
+console.log(`  Sessions   ${String(data.sessions).padStart(12)}`);
+console.log(`  Messages   ${String(data.messages).padStart(12)}`);
+console.log();
+console.log(`  Cost       ${("$" + data.cost.toFixed(2)).padStart(12)}`);
+if (data.costPerDay) console.log(`  Per day    ${("$" + data.costPerDay.toFixed(2)).padStart(12)}`);
+console.log();
+console.log("  Tokens");
+console.log(`    input      ${fmt(data.input).padStart(12)}`);
+console.log(`    output     ${fmt(data.output).padStart(12)}`);
+console.log(`    cache read ${fmt(data.cacheRead).padStart(12)}`);
+console.log(`    cache write${fmt(data.cacheWrite).padStart(12)}`);
+console.log(`    total      ${fmt(data.totalTokens).padStart(12)}`);
+console.log();
+console.log("  Billed per token by your provider — no subscription quota.");

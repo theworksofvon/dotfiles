@@ -105,7 +105,7 @@ plugins=(git)
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
-export PATH="$HOME/dotfiles/bin:$HOME/.local/bin:$PATH"
+export PATH="$HOME/.dotfiles/bin:$HOME/.local/bin:$PATH"
 
 # Homebrew — prefix differs by platform (Apple Silicon / Intel / Linux).
 for _brew in /opt/homebrew/bin/brew /usr/local/bin/brew /home/linuxbrew/.linuxbrew/bin/brew; do
@@ -200,6 +200,10 @@ ai-usage() {
   claude-usage "$@"
   echo
   codex-usage "$@"
+  if command -v opencode >/dev/null 2>&1; then
+    echo
+    opencode-usage "$@"
+  fi
 }
 
 # Push notification when a quota crosses 80%. Backgrounded so it never delays
@@ -288,3 +292,7 @@ claude-cm() {
   CLAUDE_CONFIG_DIR="$CLAUDE_ACCOUNTS_DIR/cm" command claude "$@"
 }
 # <<< claude account switcher <<<
+
+# opencode — its installer writes an absolute path here; kept portable so the
+# repo works on any machine.
+export PATH="$HOME/.opencode/bin:$PATH"

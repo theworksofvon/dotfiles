@@ -74,3 +74,5 @@ check() {
 $CHECK_ONLY && echo "usage-alert status:"
 check Claude claude-usage
 check Codex codex-usage
+# opencode is billed per token with no quota, so there's no threshold to cross
+# and nothing to warn about — deliberately not checked here.

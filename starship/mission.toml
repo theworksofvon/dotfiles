@@ -25,9 +25,10 @@ $kubernetes\
 $aws\
 ${custom.claude}\
 ${custom.codex}\
+${custom.opencode}\
+$jobs\
 $cmd_duration\
-$battery\
-$time
+$status
 [╰─](cyan)$character"""
 
 # ── header: user @ host ───────────────────────────
@@ -94,22 +95,7 @@ min_time = 0
 show_milliseconds = true
 format = "\n[│ ](dim)[⏱ $duration](white)"
 
-[battery]
-full_symbol = "🔋 "
-charging_symbol = "🔌 "
-discharging_symbol = "🔋 "
-format = "\n[│ ](dim)[$symbol$percentage]($style)"
-[[battery.display]]
-threshold = 25
-style = "orange"
-[[battery.display]]
-threshold = 100
-style = "white"
 
-[time]
-disabled = false
-time_format = "%R"
-format = "\n[│ ](dim)[🕐 $time](blue)"
 
 # ── prompt arrow ──────────────────────────────────
 [character]
@@ -128,3 +114,23 @@ format = "[$output](blue)[ │](dim) "
 command = '"$HOME/.dotfiles/bin/codex-usage" --short'
 when = 'test -d "$HOME/.codex/sessions"'
 format = "[ᛢ $output](orange)[ │](dim) "
+
+# Background jobs, non-zero exits, and in-progress rebases — the things only
+# the shell knows. Matches the bridge preset.
+[jobs]
+symbol = "⚙ "
+number_threshold = 1
+format = "[$symbol$number](orange) | "
+
+[status]
+disabled = false
+symbol = "✗"
+format = "[$symbol$status](orange) | "
+
+[git_state]
+format = "[$state( $progress_current/$progress_total)](bold orange) "
+
+[custom.opencode]
+command = '"$HOME/.dotfiles/bin/opencode-usage" --short'
+when = 'test -n "$("$HOME/.dotfiles/bin/opencode-usage" --short 2>/dev/null)"'
+format = "[◆ $output](white) | "

@@ -8,8 +8,9 @@
  * agent actually said, adds the repository state a fresh agent would otherwise
  * have to rediscover, and writes HANDOFF.md for the next one to read.
  *
- * Cursor stores its chats in a VS Code SQLite blob rather than files, so it
- * works as a destination but not yet as a source.
+ * opencode is covered too, via its own `export` command. Cursor stores its
+ * chats in a VS Code SQLite blob rather than files, so it works as a
+ * destination but not yet as a source.
  *
  *   handoff                 newest session touching this project
  *   handoff --from codex    force the source harness
@@ -95,6 +96,57 @@ function codexSessions(projectPath) {
     .map((f) => ({ ...f, source: "codex" }));
 }
 
+// opencode keeps sessions in a database rather than files, but ships an
+// `export` command that emits JSON — so shell out to it instead of reading
+// storage directly, which would break the moment their schema changes.
+function opencodeBin() {
+  for (const c of [
+    join(homedir(), ".opencode", "bin", "opencode"),
+    "/opt/homebrew/bin/opencode",
+  ]) {
+    try {
+      statSync(c);
+      return c;
+    } catch {
+      /* keep looking */
+    }
+  }
+  return null;
+}
+
+function opencodeSessions() {
+  const bin = opencodeBin();
+  if (!bin) return [];
+  // Without a session id, export emits the most recent session.
+  const raw = sh(bin, ["export"], REPO);
+  if (!raw) return [];
+  return [{ path: null, mtimeMs: Date.now(), source: "opencode", raw }];
+}
+
+function fromOpencode(session) {
+  const turns = [];
+  let data;
+  try {
+    data = JSON.parse(session.raw);
+  } catch {
+    return turns;
+  }
+  // Shape varies by version; look for message-like records defensively.
+  const messages = data.messages || data.parts || data.session?.messages || [];
+  for (const m of messages) {
+    const role = m.role || m.type;
+    const text = clean(
+      typeof m.content === "string"
+        ? m.content
+        : (m.text ?? (Array.isArray(m.content) ? m.content.map((c) => c.text || "").join("\n") : "")),
+    );
+    if (!text) continue;
+    if (role === "user") turns.push({ role: "user", text });
+    else if (role === "assistant" || role === "agent") turns.push({ role: "assistant", text });
+  }
+  return turns;
+}
+
 // ── extracting dialogue ───────────────────────────
 
 // Harness-injected blocks are noise to the next agent: reminders, slash-command
@@ -156,6 +208,12 @@ function fromCodex(file) {
   return turns;
 }
 
+function extract(session) {
+  if (session.source === "claude") return fromClaude(session.path);
+  if (session.source === "codex") return fromCodex(session.path);
+  return fromOpencode(session);
+}
+
 // ── repository context ────────────────────────────
 
 // What a fresh agent would otherwise waste its first few turns discovering.
@@ -174,6 +232,7 @@ const wanted = opt("from");
 let candidates = [];
 if (!wanted || wanted === "claude") candidates.push(...claudeSessions(REPO));
 if (!wanted || wanted === "codex") candidates.push(...codexSessions(REPO));
+if (!wanted || wanted === "opencode") candidates.push(...opencodeSessions());
 candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
 
 if (has("list")) {
@@ -183,7 +242,7 @@ if (has("list")) {
   }
   console.log(`Sessions for ${REPO}:`);
   for (const c of candidates.slice(0, 10)) {
-    const turns = c.source === "claude" ? fromClaude(c.path) : fromCodex(c.path);
+    const turns = extract(c);
     console.log(
       `  ${c.source.padEnd(7)} ${new Date(c.mtimeMs).toLocaleString()}  ${String(turns.length).padStart(3)} messages`,
     );
@@ -198,7 +257,7 @@ if (!candidates.length) {
 }
 
 const session = candidates[0];
-const turns = session.source === "claude" ? fromClaude(session.path) : fromCodex(session.path);
+const turns = extract(session);
 
 if (!turns.length) {
   console.error(`Found a ${session.source} session but no dialogue in it.`);

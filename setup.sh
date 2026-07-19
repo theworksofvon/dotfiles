@@ -134,6 +134,18 @@ fi
 # ── git identity ──────────────────────────────────
 # Untracked, so a fresh clone has no name until one is set. Ask rather than
 # leave placeholder values that would silently author commits as "Your Name".
+# opencode ships its own installer rather than a Homebrew formula, so it can't
+# live in the Brewfile.
+step "opencode"
+if have opencode || [ -x "$HOME/.opencode/bin/opencode" ]; then
+  ok "already installed"
+elif $DO_INSTALL; then
+  act "installing opencode"
+  run bash -c "curl -fsSL https://opencode.ai/install | bash"
+else
+  ok "skipped (--no-install)"
+fi
+
 step "Git identity"
 if [ -n "$(git config --get user.email 2>/dev/null)" ] &&
    [ "$(git config --get user.email)" != "you@example.com" ]; then

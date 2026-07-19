@@ -66,7 +66,8 @@ a bad package to be caught upstream. Node projects want
 ```
 setup.sh     install prerequisites, then link
 install.sh   link only
-ai/          agent instructions, shared by Claude and Codex
+agents/      shared AGENTS.md + per-agent config (claude, codex,
+             cursor, opencode); each linked only if installed
 bin/         usage meters, notifier, status-line widgets
 zsh/ git/ tmux/ nvim/ starship/ ghostty/ mise/ claude/
 ```
@@ -77,10 +78,13 @@ there's no copy-back step. Replaced files are backed up to `*.bak`.
 ## Commands
 
 ```sh
-ai-usage        both providers at once
+ai-usage        every provider at once
 claude-usage    limits, token counts, per-model breakdown
 codex-usage     quota and tokens from Codex session logs
+opencode-usage  cost and tokens (wraps `opencode stats`)
 usage-alert     notify past 80%; runs backgrounded at shell start
+handoff         move a conversation to another agent
+agent-rules     drop shared AGENTS.md into a project
 ```
 
 Each takes `--short` and `--json`; `claude-usage` also takes `--prompt`.

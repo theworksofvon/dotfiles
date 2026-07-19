@@ -17,6 +17,7 @@ format = """
 [╭─](cyan) \
 $directory\
 $git_branch\
+$git_state\
 $git_status\
 $python\
 $rust\
@@ -24,11 +25,12 @@ $nodejs\
 $docker_context\
 $kubernetes\
 $fill\
+$jobs\
 ${custom.claude}\
 ${custom.codex}\
-$battery\
+${custom.opencode}\
 $cmd_duration\
-$time
+$status
 [╰─](cyan)$character"""
 
 [fill]
@@ -99,26 +101,38 @@ command = '"$HOME/.dotfiles/bin/codex-usage" --short'
 when = 'test -d "$HOME/.codex/sessions"'
 format = "[ᗢ $output](orange)[ │](dim) "
 
-[battery]
-full_symbol = "󰁹 "
-charging_symbol = "󰂄 "
-discharging_symbol = "󰁽 "
-format = "[$symbol$percentage](white)[ │](dim) "
-[[battery.display]]
-threshold = 25
-style = "orange"
-[[battery.display]]
-threshold = 100
-style = "cyan"
+# opencode bills per token rather than against a quota, so this shows spend.
+# `when` requires non-empty output, otherwise a fresh install with no sessions
+# would render a bare symbol with nothing after it.
+[custom.opencode]
+command = '"$HOME/.dotfiles/bin/opencode-usage" --short'
+when = 'test -n "$("$HOME/.dotfiles/bin/opencode-usage" --short 2>/dev/null)"'
+format = "[◆ $output](white)[ │](dim) "
+
 
 [cmd_duration]
 min_time = 500
 format = "[󱎫 $duration](white)[ │](dim) "
 
-[time]
+# Background jobs — easy to forget one is running, and these are usually
+# long builds or agent runs worth knowing about.
+[jobs]
+symbol = "󰑮 "
+number_threshold = 1
+format = "[$symbol$number](orange)[ │](dim) "
+
+# Non-zero exit codes, spelled out. The prompt arrow turns red on failure but
+# doesn't say whether it was a 1 or a 130.
+[status]
 disabled = false
-time_format = "%R"
-format = "[󰥔 $time ](cyan)"
+symbol = "✗"
+format = "[$symbol$status](orange)[ │](dim) "
+
+# Mid-rebase, mid-merge, mid-cherry-pick — the state it's easiest to forget
+# you're in, and the most costly to forget.
+[git_state]
+format = "[$state( $progress_current/$progress_total)](bold orange) "
+
 
 # ── prompt arrow ──────────────────────────────────
 [character]
