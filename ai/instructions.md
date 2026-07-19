@@ -1,6 +1,8 @@
 # Working agreements
 
-Applies to every project unless a repo's own CLAUDE.md overrides it.
+Shared by Claude Code (`~/.claude/CLAUDE.md`) and Codex (`~/.codex/AGENTS.md`),
+both symlinked to this file. Applies to every project unless a repo's own
+instructions override it.
 
 ## Communication
 
