@@ -61,6 +61,15 @@ only stores one set of credentials at a time.
 a bad package to be caught upstream. Node projects want
 `minimum-release-age=10080` in `.npmrc` (pnpm 10.16+).
 
+## Guardrails
+
+Claude, Codex, and Cursor are each restricted from writing outside the project
+without approval, and from destructive commands — recursive deletes, force
+pushes, history rewrites — plus reads of `.env`, SSH keys, and credentials.
+
+Claude uses `ask`/`deny` rules; Codex and Cursor use their sandboxes, which
+enforce it rather than prompting. opencode is supported but not covered.
+
 ## Layout
 
 ```
@@ -81,7 +90,7 @@ there's no copy-back step. Replaced files are backed up to `*.bak`.
 ai-usage        every provider at once
 claude-usage    limits, token counts, per-model breakdown
 codex-usage     quota and tokens from Codex session logs
-opencode-usage  cost and tokens (wraps `opencode stats`)
+opencode-usage  cost and tokens (optional; only if opencode is installed)
 usage-alert     notify past 80%; runs backgrounded at shell start
 handoff         move a conversation to another agent
 agent-rules     drop shared AGENTS.md into a project

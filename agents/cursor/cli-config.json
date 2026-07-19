@@ -18,12 +18,21 @@
     "allow": [
       "Shell(ls)"
     ],
-    "deny": []
+    "deny": [
+      "Shell(rm -rf /)",
+      "Shell(rm -rf ~)",
+      "Shell(sudo rm)",
+      "Shell(git push --force)",
+      "Shell(git push -f)",
+      "Shell(git filter-branch)",
+      "Shell(mkfs)",
+      "Shell(dd if=)"
+    ]
   },
   "approvalMode": "allowlist",
   "autoAcceptWebSearch": false,
   "sandbox": {
-    "mode": "disabled",
+    "mode": "enabled",
     "networkAccess": "user_config_with_defaults"
   },
   "runEverythingSettingsPromptStreak": 0,

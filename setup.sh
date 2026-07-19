@@ -131,21 +131,20 @@ else
   warn "mise not found — skipping. Re-run setup.sh after installing it."
 fi
 
+# ── optional agents ───────────────────────────────
+# opencode is supported but not installed by default — install.sh configures it
+# only if it's already present. To opt in:
+#   curl -fsSL https://opencode.ai/install | bash && ./install.sh
+step "opencode (optional)"
+if have opencode || [ -x "$HOME/.opencode/bin/opencode" ]; then
+  ok "installed — install.sh will configure it"
+else
+  ok "not installed; see the comment above to enable"
+fi
+
 # ── git identity ──────────────────────────────────
 # Untracked, so a fresh clone has no name until one is set. Ask rather than
 # leave placeholder values that would silently author commits as "Your Name".
-# opencode ships its own installer rather than a Homebrew formula, so it can't
-# live in the Brewfile.
-step "opencode"
-if have opencode || [ -x "$HOME/.opencode/bin/opencode" ]; then
-  ok "already installed"
-elif $DO_INSTALL; then
-  act "installing opencode"
-  run bash -c "curl -fsSL https://opencode.ai/install | bash"
-else
-  ok "skipped (--no-install)"
-fi
-
 step "Git identity"
 if [ -n "$(git config --get user.email 2>/dev/null)" ] &&
    [ "$(git config --get user.email)" != "you@example.com" ]; then

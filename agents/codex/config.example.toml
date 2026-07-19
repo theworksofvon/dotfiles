@@ -146,3 +146,13 @@ status_line = [
 [mcp_servers.context7]
 command = "context7-mcp"
 args = []
+
+# ── guardrails ────────────────────────────────────
+# Writes are confined to the workspace. Anything outside it — home dotfiles,
+# other repos, system paths — requires explicit approval. This is the Codex
+# equivalent of the ask rules in agents/claude/settings.json, and it's enforced
+# by the sandbox rather than by prompting, so it's the stronger of the two.
+sandbox_mode = "workspace-write"
+
+# The model escalates to you when it wants something the sandbox won't allow.
+approval_policy = "on-request"

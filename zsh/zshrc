@@ -293,6 +293,3 @@ claude-cm() {
 }
 # <<< claude account switcher <<<
 
-# opencode — its installer writes an absolute path here; kept portable so the
-# repo works on any machine.
-export PATH="$HOME/.opencode/bin:$PATH"
