@@ -1,0 +1,262 @@
+#!/usr/bin/env node
+/**
+ * handoff — move a conversation from one agent to another.
+ *
+ * Claude and Codex both write session transcripts as JSONL, but most of that
+ * bulk is tool output: file contents, command results, search hits. The
+ * dialogue itself is a small fraction. This extracts only what you and the
+ * agent actually said, adds the repository state a fresh agent would otherwise
+ * have to rediscover, and writes HANDOFF.md for the next one to read.
+ *
+ * Cursor stores its chats in a VS Code SQLite blob rather than files, so it
+ * works as a destination but not yet as a source.
+ *
+ *   handoff                 newest session touching this project
+ *   handoff --from codex    force the source harness
+ *   handoff --list          show candidate sessions, write nothing
+ *   handoff --stdout        print instead of writing the file
+ */
+
+import { execFileSync } from "child_process";
+import { appendFileSync, readFileSync, readdirSync, statSync, writeFileSync } from "fs";
+import { homedir } from "os";
+import { join } from "path";
+
+const CLAUDE_PROJECTS = join(homedir(), ".claude", "projects");
+const CODEX_SESSIONS = join(homedir(), ".codex", "sessions");
+
+const argv = process.argv.slice(2);
+const has = (f) => argv.includes(`--${f}`);
+const opt = (f) => {
+  const i = argv.indexOf(`--${f}`);
+  return i >= 0 ? argv[i + 1] : undefined;
+};
+
+if (has("help") || argv.includes("-h")) {
+  console.log(readFileSync(new URL(import.meta.url)).toString().split("\n").slice(2, 19).join("\n").replace(/^ \* ?/gm, ""));
+  process.exit(0);
+}
+
+const sh = (cmd, args, cwd) => {
+  try {
+    return execFileSync(cmd, args, {
+      cwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return "";
+  }
+};
+
+const CWD = process.cwd();
+const REPO = sh("git", ["rev-parse", "--show-toplevel"], CWD) || CWD;
+
+// ── locating sessions ─────────────────────────────
+
+function jsonlFiles(dir) {
+  const out = [];
+  const walk = (d) => {
+    let entries;
+    try {
+      entries = readdirSync(d, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      const p = join(d, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith(".jsonl")) out.push({ path: p, mtimeMs: statSync(p).mtimeMs });
+    }
+  };
+  walk(dir);
+  return out.sort((a, b) => b.mtimeMs - a.mtimeMs);
+}
+
+// Claude names each project directory after its path, with slashes as dashes.
+function claudeSessions(projectPath) {
+  const slug = projectPath.replace(/\//g, "-");
+  return jsonlFiles(join(CLAUDE_PROJECTS, slug)).map((f) => ({ ...f, source: "claude" }));
+}
+
+// Codex stores sessions by date, recording the working directory in the
+// session_meta line, so match on that rather than the path.
+function codexSessions(projectPath) {
+  return jsonlFiles(CODEX_SESSIONS)
+    .slice(0, 60) // recent only; scanning every session is needlessly slow
+    .filter((f) => {
+      try {
+        const first = readFileSync(f.path, "utf8").split("\n", 1)[0];
+        return JSON.parse(first)?.payload?.cwd === projectPath;
+      } catch {
+        return false;
+      }
+    })
+    .map((f) => ({ ...f, source: "codex" }));
+}
+
+// ── extracting dialogue ───────────────────────────
+
+// Harness-injected blocks are noise to the next agent: reminders, slash-command
+// echoes, and captured local command output.
+function clean(text) {
+  return String(text)
+    .replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, "")
+    .replace(/<local-command-[\s\S]*?<\/local-command-[a-z]*>/g, "")
+    .replace(/<command-(name|message|args)>[\s\S]*?<\/command-\1>/g, "")
+    .trim();
+}
+
+function fromClaude(file) {
+  const turns = [];
+  for (const line of readFileSync(file, "utf8").split("\n")) {
+    if (!line.trim()) continue;
+    let e;
+    try {
+      e = JSON.parse(line);
+    } catch {
+      continue;
+    }
+
+    if (e.type === "user") {
+      // Array content is a tool result; only plain strings are real input.
+      const c = e.message?.content;
+      if (typeof c !== "string") continue;
+      const text = clean(c);
+      if (text) turns.push({ role: "user", text });
+    } else if (e.type === "assistant") {
+      // Keep spoken text; drop thinking and tool_use blocks.
+      const blocks = (e.message?.content || []).filter((b) => b.type === "text");
+      const text = clean(blocks.map((b) => b.text).join("\n"));
+      if (text) turns.push({ role: "assistant", text });
+    }
+  }
+  return turns;
+}
+
+function fromCodex(file) {
+  const turns = [];
+  for (const line of readFileSync(file, "utf8").split("\n")) {
+    if (!line.trim()) continue;
+    let e;
+    try {
+      e = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    const p = e.payload;
+    if (p?.type === "user_message") {
+      const text = clean(p.message || "");
+      if (text) turns.push({ role: "user", text });
+    } else if (p?.type === "agent_message") {
+      const text = clean(p.message || "");
+      if (text) turns.push({ role: "assistant", text });
+    }
+  }
+  return turns;
+}
+
+// ── repository context ────────────────────────────
+
+// What a fresh agent would otherwise waste its first few turns discovering.
+function repoState() {
+  if (!sh("git", ["rev-parse", "--git-dir"], REPO)) return null;
+  return {
+    branch: sh("git", ["rev-parse", "--abbrev-ref", "HEAD"], REPO),
+    dirty: sh("git", ["status", "--short"], REPO),
+    commits: sh("git", ["log", "--oneline", "-8"], REPO),
+  };
+}
+
+// ── main ──────────────────────────────────────────
+
+const wanted = opt("from");
+let candidates = [];
+if (!wanted || wanted === "claude") candidates.push(...claudeSessions(REPO));
+if (!wanted || wanted === "codex") candidates.push(...codexSessions(REPO));
+candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+
+if (has("list")) {
+  if (!candidates.length) {
+    console.log(`No sessions found for ${REPO}`);
+    process.exit(0);
+  }
+  console.log(`Sessions for ${REPO}:`);
+  for (const c of candidates.slice(0, 10)) {
+    const turns = c.source === "claude" ? fromClaude(c.path) : fromCodex(c.path);
+    console.log(
+      `  ${c.source.padEnd(7)} ${new Date(c.mtimeMs).toLocaleString()}  ${String(turns.length).padStart(3)} messages`,
+    );
+  }
+  process.exit(0);
+}
+
+if (!candidates.length) {
+  console.error(`No Claude or Codex session found for ${REPO}.`);
+  console.error("Run this from a directory where you've been working with an agent.");
+  process.exit(1);
+}
+
+const session = candidates[0];
+const turns = session.source === "claude" ? fromClaude(session.path) : fromCodex(session.path);
+
+if (!turns.length) {
+  console.error(`Found a ${session.source} session but no dialogue in it.`);
+  process.exit(1);
+}
+
+const state = repoState();
+const lines = [
+  "# Handoff",
+  "",
+  `Conversation from a **${session.source}** session, exported ${new Date().toLocaleString()}.`,
+  `Project: \`${REPO}\``,
+  "",
+  "Tool calls and their output are omitted — this is the dialogue only. Read it",
+  "for context, then continue the work.",
+  "",
+];
+
+if (state) {
+  lines.push("## Repository state", "");
+  lines.push(`- Branch: \`${state.branch}\``);
+  lines.push(`- Uncommitted: ${state.dirty ? `\n\n\`\`\`\n${state.dirty}\n\`\`\`` : "clean"}`);
+  if (state.commits) lines.push("", "Recent commits:", "", "```", state.commits, "```");
+  lines.push("");
+}
+
+lines.push("## Conversation", "");
+for (const t of turns) {
+  lines.push(t.role === "user" ? "### User" : "### Agent", "", t.text, "");
+}
+
+const out = lines.join("\n");
+
+if (has("stdout")) {
+  process.stdout.write(out);
+  process.exit(0);
+}
+
+const target = join(REPO, "HANDOFF.md");
+writeFileSync(target, out);
+
+// A personal handoff file has no business in someone else's PR.
+const gitDir = sh("git", ["rev-parse", "--git-dir"], REPO);
+if (gitDir) {
+  const exclude = join(gitDir.startsWith("/") ? gitDir : join(REPO, gitDir), "info", "exclude");
+  try {
+    if (!readFileSync(exclude, "utf8").split("\n").includes("HANDOFF.md")) {
+      appendFileSync(exclude, "HANDOFF.md\n");
+    }
+  } catch {
+    /* no exclude file; not worth failing over */
+  }
+}
+
+const kb = (Buffer.byteLength(out) / 1024).toFixed(1);
+console.log(`Wrote HANDOFF.md — ${turns.length} messages from ${session.source}, ${kb} KB`);
+console.log("");
+console.log("Continue elsewhere:");
+console.log('  claude       "read HANDOFF.md and continue where we left off"');
+console.log('  codex        "read HANDOFF.md and continue where we left off"');
+console.log('  cursor-agent "read HANDOFF.md and continue where we left off"');
