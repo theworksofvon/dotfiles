@@ -19,14 +19,28 @@
       "Shell(ls)"
     ],
     "deny": [
-      "Shell(rm -rf /)",
-      "Shell(rm -rf ~)",
-      "Shell(sudo rm)",
+      "Shell(brew cleanup)",
+      "Shell(brew remove)",
+      "Shell(brew uninstall)",
+      "Shell(cargo uninstall)",
+      "Shell(dd if=)",
+      "Shell(docker system prune)",
+      "Shell(docker volume rm)",
+      "Shell(gh repo delete)",
+      "Shell(git filter-branch)",
       "Shell(git push --force)",
       "Shell(git push -f)",
-      "Shell(git filter-branch)",
+      "Shell(mise implode)",
+      "Shell(mise uninstall)",
       "Shell(mkfs)",
-      "Shell(dd if=)"
+      "Shell(npm uninstall)",
+      "Shell(pip uninstall)",
+      "Shell(pnpm remove)",
+      "Shell(rm -rf /)",
+      "Shell(rm -rf ~)",
+      "Shell(security delete-generic-password)",
+      "Shell(sudo rm)",
+      "Shell(terraform destroy)"
     ]
   },
   "approvalMode": "allowlist",
