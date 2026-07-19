@@ -128,3 +128,15 @@ approval_mode = "approve"
 
 [apps.connector_76869538009648d5b282a4bb21c3d157.tools."github.update_pull_request"]
 approval_mode = "approve"
+
+# Status line shown in the Codex TUI. Built-in items only — Codex has no
+# custom-command statusline like Claude Code's (see openai/codex#20140), so
+# this is the closest equivalent. Verify or adjust with /statusline in the TUI.
+[tui]
+status_line = [
+  "model-with-reasoning",
+  "current-dir",
+  "context-used",
+  "five-hour-limit",
+  "weekly-limit",
+]
