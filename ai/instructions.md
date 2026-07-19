@@ -45,6 +45,21 @@ instructions override it.
   told to — review output stays in the conversation.
 - Never commit secrets, `.env` files, or credentials.
 
+## Changelogs
+
+If the repo has a `CHANGELOG.md`, update it as part of the change — always,
+without being asked. Never create one where it doesn't already exist.
+
+- Read the existing entries first and copy that file's conventions exactly:
+  its heading style, version and date format, section names
+  (`Added`/`Fixed`/`Changed` vs. something bespoke), bullet phrasing, tense,
+  and whether entries link to PRs or issues. The file's own history is the
+  spec — not Keep a Changelog, and not any other project's habits.
+- Describe the change as shipped, not the process of getting there. Write what
+  a user of this project would notice.
+- Add to the unreleased or in-progress section if the file has one. Don't
+  invent a version number or release date.
+
 ## Code style
 
 - Public methods at the top, implementation details below.
