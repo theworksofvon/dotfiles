@@ -1,0 +1,13 @@
+# Ghostty config
+# Font: the "Mono" Nerd Font variant keeps icons single-width so the prompt
+# never renders oversized/misaligned.
+font-family = "JetBrainsMono Nerd Font Mono"
+font-size = 14
+
+# Nice defaults
+theme = "tokyonight"
+background-opacity = 0.96
+window-padding-x = 12
+window-padding-y = 10
+cursor-style = block
+mouse-hide-while-typing = true

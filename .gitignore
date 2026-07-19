@@ -1,0 +1,10 @@
+# backups created by install.sh
+*.bak
+
+# machine-local overrides (not shared)
+zsh/zshrc.local
+mise/config.local.toml
+claude/settings.local.json
+
+# macOS
+.DS_Store

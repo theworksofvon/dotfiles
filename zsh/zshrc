@@ -1,0 +1,206 @@
+# If you come from bash you might have to change your $PATH.
+# export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:$PATH
+
+# Path to your Oh My Zsh installation.
+export ZSH="$HOME/.oh-my-zsh"
+
+# Set name of the theme to load --- if set to "random", it will
+# load a random theme each time Oh My Zsh is loaded, in which case,
+# to know which specific one was loaded, run: echo $RANDOM_THEME
+# See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
+ZSH_THEME="robbyrussell"
+
+# Set list of themes to pick from when loading at random
+# Setting this variable when ZSH_THEME=random will cause zsh to load
+# a theme from this variable instead of looking in $ZSH/themes/
+# If set to an empty array, this variable will have no effect.
+# ZSH_THEME_RANDOM_CANDIDATES=( "robbyrussell" "agnoster" )
+
+# Uncomment the following line to use case-sensitive completion.
+# CASE_SENSITIVE="true"
+
+# Uncomment the following line to use hyphen-insensitive completion.
+# Case-sensitive completion must be off. _ and - will be interchangeable.
+# HYPHEN_INSENSITIVE="true"
+
+# Uncomment one of the following lines to change the auto-update behavior
+# zstyle ':omz:update' mode disabled  # disable automatic updates
+# zstyle ':omz:update' mode auto      # update automatically without asking
+# zstyle ':omz:update' mode reminder  # just remind me to update when it's time
+
+# Uncomment the following line to change how often to auto-update (in days).
+# zstyle ':omz:update' frequency 13
+
+# Uncomment the following line if pasting URLs and other text is messed up.
+# DISABLE_MAGIC_FUNCTIONS="true"
+
+# Uncomment the following line to disable colors in ls.
+# DISABLE_LS_COLORS="true"
+
+# Uncomment the following line to disable auto-setting terminal title.
+# DISABLE_AUTO_TITLE="true"
+
+# Uncomment the following line to enable command auto-correction.
+# ENABLE_CORRECTION="true"
+
+# Uncomment the following line to display red dots whilst waiting for completion.
+# You can also set it to another string to have that shown instead of the default red dots.
+# e.g. COMPLETION_WAITING_DOTS="%F{yellow}waiting...%f"
+# Caution: this setting can cause issues with multiline prompts in zsh < 5.7.1 (see #5765)
+# COMPLETION_WAITING_DOTS="true"
+
+# Uncomment the following line if you want to disable marking untracked files
+# under VCS as dirty. This makes repository status check for large repositories
+# much, much faster.
+# DISABLE_UNTRACKED_FILES_DIRTY="true"
+
+# Uncomment the following line if you want to change the command execution time
+# stamp shown in the history command output.
+# You can set one of the optional three formats:
+# "mm/dd/yyyy"|"dd.mm.yyyy"|"yyyy-mm-dd"
+# or set a custom format using the strftime function format specifications,
+# see 'man strftime' for details.
+# HIST_STAMPS="mm/dd/yyyy"
+
+# Would you like to use another custom folder than $ZSH/custom?
+# ZSH_CUSTOM=/path/to/new-custom-folder
+
+# Which plugins would you like to load?
+# Standard plugins can be found in $ZSH/plugins/
+# Custom plugins may be added to $ZSH_CUSTOM/plugins/
+# Example format: plugins=(rails git textmate ruby lighthouse)
+# Add wisely, as too many plugins slow down shell startup.
+plugins=(git)
+
+source $ZSH/oh-my-zsh.sh
+
+# User configuration
+
+# export MANPATH="/usr/local/man:$MANPATH"
+
+# You may need to manually set your language environment
+# export LANG=en_US.UTF-8
+
+# Preferred editor for local and remote sessions
+# if [[ -n $SSH_CONNECTION ]]; then
+#   export EDITOR='vim'
+# else
+#   export EDITOR='nvim'
+# fi
+
+# Compilation flags
+# export ARCHFLAGS="-arch $(uname -m)"
+
+# Set personal aliases, overriding those provided by Oh My Zsh libs,
+# plugins, and themes. Aliases can be placed here, though Oh My Zsh
+# users are encouraged to define aliases within a top-level file in
+# the $ZSH_CUSTOM folder, with .zsh extension. Examples:
+# - $ZSH_CUSTOM/aliases.zsh
+# - $ZSH_CUSTOM/macos.zsh
+# For a full list of active aliases, run `alias`.
+#
+# Example aliases
+# alias zshconfig="mate ~/.zshrc"
+# alias ohmyzsh="mate ~/.oh-my-zsh"
+export PATH="$HOME/.local/bin:$PATH"
+export NVM_DIR="$HOME/.nvm"
+[ -s "$(brew --prefix nvm)/nvm.sh" ] && . "$(brew --prefix nvm)/nvm.sh"
+[ -s "$(brew --prefix nvm)/etc/bash_completion.d/nvm" ] && . "$(brew --prefix nvm)/etc/bash_completion.d/nvm"
+
+# bun completions
+[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
+
+# bun
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+
+# mise — manages CLI tools (prettier, sqlfluff). Node stays with nvm above,
+# since mise's config declares no node/python runtime.
+command -v mise >/dev/null 2>&1 || export PATH="/opt/homebrew/bin:$PATH"
+eval "$(mise activate zsh)"
+
+# Starship prompt (replaces the Oh My Zsh ZSH_THEME above)
+eval "$(starship init zsh)"
+
+# Switch between prompt presets: `prompt-style bridge` or `prompt-style mission`
+# Re-points the symlink rather than copying, so editing ~/.config/starship.toml
+# edits the preset in ~/dotfiles directly.
+prompt-style() {
+  local p="$HOME/.config/starship/$1.toml"
+  if [[ -f "$p" ]]; then
+    ln -sfn "$p" "$HOME/.config/starship.toml" && echo "✔ Prompt → $1 (press Enter to see it)"
+  else
+    echo "usage: prompt-style bridge|mission"
+  fi
+}
+
+# >>> grok installer >>>
+export PATH="$HOME/.grok/bin:$PATH"
+fpath=(~/.grok/completions/zsh $fpath)
+autoload -Uz compinit && compinit -C
+# <<< grok installer <<<
+
+# >>> claude account switcher >>>
+# macOS Keychain only holds one global "Claude Code-credentials" entry, so
+# CLAUDE_CONFIG_DIR alone isn't enough to run two logged-in accounts. These
+# helpers stash each account's credential under its own Keychain entry and
+# swap the active one (plus a per-account CLAUDE_CONFIG_DIR) before launching.
+CLAUDE_ACCOUNTS_DIR="$HOME/.claude-accounts"
+
+_claude_kc_get() {
+  security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null
+}
+
+_claude_kc_set() {
+  security delete-generic-password -s "Claude Code-credentials" >/dev/null 2>&1
+  security add-generic-password -s "Claude Code-credentials" -a "$USER" -w "$1" -U >/dev/null
+}
+
+claude-account-save() {
+  local name="$1"
+  if [[ -z "$name" ]]; then
+    echo "usage: claude-account-save <name>"
+    return 1
+  fi
+  local secret
+  secret=$(_claude_kc_get)
+  if [[ -z "$secret" ]]; then
+    echo "No active Claude Code credentials in Keychain. Run 'claude' and log in first."
+    return 1
+  fi
+  mkdir -p "$CLAUDE_ACCOUNTS_DIR"
+  security add-generic-password -s "Claude Code-credentials-$name" -a "$USER" -w "$secret" -U >/dev/null
+  echo "$name" > "$CLAUDE_ACCOUNTS_DIR/.active"
+  echo "Saved current Claude Code login as '$name'."
+}
+
+_claude_account_use() {
+  local name="$1"
+  local secret
+  secret=$(security find-generic-password -s "Claude Code-credentials-$name" -w 2>/dev/null)
+  if [[ -z "$secret" ]]; then
+    echo "No saved account named '$name' yet."
+    echo "Log into it with 'claude', then run: claude-account-save $name"
+    return 1
+  fi
+  local current_name
+  current_name=$(cat "$CLAUDE_ACCOUNTS_DIR/.active" 2>/dev/null)
+  if [[ -n "$current_name" && "$current_name" != "$name" ]]; then
+    local current_secret
+    current_secret=$(_claude_kc_get)
+    [[ -n "$current_secret" ]] && security add-generic-password -s "Claude Code-credentials-$current_name" -a "$USER" -w "$current_secret" -U >/dev/null
+  fi
+  _claude_kc_set "$secret"
+  echo "$name" > "$CLAUDE_ACCOUNTS_DIR/.active"
+}
+
+claude-personal() {
+  _claude_account_use personal || return 1
+  CLAUDE_CONFIG_DIR="$CLAUDE_ACCOUNTS_DIR/personal" command claude "$@"
+}
+
+claude-cm() {
+  _claude_account_use cm || return 1
+  CLAUDE_CONFIG_DIR="$CLAUDE_ACCOUNTS_DIR/cm" command claude "$@"
+}
+# <<< claude account switcher <<<

@@ -1,0 +1,67 @@
+[user]
+	name = theworksofvon
+	email = jacksondavontae19@gmail.com
+
+[init]
+	defaultBranch = main
+
+[core]
+	autocrlf = input
+	whitespace = trailing-space,space-before-tab
+
+# ── diff / merge quality ──────────────────────────
+[diff]
+	algorithm = histogram
+	colorMoved = default
+	mnemonicPrefix = true
+	renames = true
+
+[merge]
+	conflictstyle = zdiff3
+
+# Reuse recorded conflict resolutions, so a conflict resolved once
+# is replayed automatically the next time it appears.
+[rerere]
+	enabled = true
+	autoupdate = true
+
+# ── workflow ──────────────────────────────────────
+[fetch]
+	prune = true
+	pruneTags = true
+
+[pull]
+	rebase = true
+
+[push]
+	autoSetupRemote = true
+	followTags = true
+
+[rebase]
+	autosquash = true
+	autoStash = true
+	updateRefs = true
+
+[commit]
+	verbose = true
+
+[help]
+	autocorrect = prompt
+
+# ── ui ────────────────────────────────────────────
+[column]
+	ui = auto
+
+[branch]
+	sort = -committerdate
+
+[tag]
+	sort = version:refname
+
+[credential "https://github.com"]
+	helper = !gh auth git-credential
+
+[alias]
+	st = status --short --branch
+	last = log -1 --stat
+	unstage = restore --staged

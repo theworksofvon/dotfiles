@@ -1,0 +1,119 @@
+# ══════════════════════════════════════════════════════════════
+#  BRIDGE — futuristic command-console prompt
+#  Palette: cyan / white / blue / subtle orange · JetBrainsMono NF
+# ══════════════════════════════════════════════════════════════
+add_newline = true
+palette = "bridge"
+command_timeout = 1000
+
+[palettes.bridge]
+cyan   = "#7dd3fc"
+blue   = "#7aa2f7"
+white  = "#c0caf5"
+orange = "#ff9e64"
+dim    = "#3b4261"
+
+format = """
+[╭─](cyan) \
+$directory\
+$git_branch\
+$git_status\
+$python\
+$rust\
+$nodejs\
+$docker_context\
+$kubernetes\
+$fill\
+${custom.claude}\
+$battery\
+$cmd_duration\
+$time
+[╰─](cyan)$character"""
+
+[fill]
+symbol = " "
+
+# ── directory ─────────────────────────────────────
+[directory]
+format = "[](cyan)[ $path](bold white)[$read_only](orange) "
+read_only = " 󰌾"
+truncation_length = 4
+truncate_to_repo = false
+truncation_symbol = "…/"
+
+# ── git ───────────────────────────────────────────
+[git_branch]
+symbol = " "
+format = "[│](dim) [$symbol$branch](cyan) "
+
+[git_status]
+format = "[$all_status$ahead_behind](orange)"
+conflicted = "≠"
+ahead = "⇡${count}"
+behind = "⇣${count}"
+diverged = "⇕⇡${ahead_count}⇣${behind_count}"
+untracked = "?${count}"
+stashed = "≡"
+modified = "!${count}"
+staged = "+${count}"
+renamed = "»${count}"
+deleted = "✘${count}"
+
+# ── languages ─────────────────────────────────────
+[python]
+symbol = " "
+format = "[│](dim) [$symbol$version](blue) "
+
+[rust]
+symbol = " "
+format = "[│](dim) [$symbol$version](orange) "
+
+[nodejs]
+symbol = " "
+format = "[│](dim) [$symbol$version](cyan) "
+
+# ── infra ─────────────────────────────────────────
+[docker_context]
+symbol = " "
+only_with_files = true
+format = "[│](dim) [$symbol$context](blue) "
+
+[kubernetes]
+disabled = false
+symbol = "☸ "
+format = "[│](dim) [$symbol$context](cyan) "
+
+# ── right-side telemetry ──────────────────────────
+# Claude usage: 5-hour block reset + weekly window remaining.
+# Reads a 5-minute file cache, so this costs ~25ms per prompt.
+[custom.claude]
+command = 'node "$HOME/dotfiles/vendor/gsong/cc-time-left.mjs"'
+when = true
+format = "[$output](blue)[ │](dim) "
+
+[battery]
+full_symbol = "󰁹 "
+charging_symbol = "󰂄 "
+discharging_symbol = "󰁽 "
+format = "[$symbol$percentage](white)[ │](dim) "
+[[battery.display]]
+threshold = 25
+style = "orange"
+[[battery.display]]
+threshold = 100
+style = "cyan"
+
+[cmd_duration]
+min_time = 500
+format = "[󱎫 $duration](white)[ │](dim) "
+
+[time]
+disabled = false
+time_format = "%R"
+format = "[󰥔 $time ](cyan)"
+
+# ── prompt arrow ──────────────────────────────────
+[character]
+success_symbol = "[❯](bold cyan)"
+error_symbol = "[❯](bold orange)"
+vicmd_symbol = "[❮](bold blue)"

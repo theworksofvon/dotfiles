@@ -1,0 +1,8 @@
+[tools]
+"npm:prettier" = "latest"
+"pipx:sqlfluff" = "latest"
+
+[settings]
+# Refuse to install any release younger than 7 days, so a compromised
+# package is caught and yanked upstream before it can land here.
+minimum_release_age = "7d"
