@@ -8,3 +8,6 @@ claude/settings.local.json
 
 # macOS
 .DS_Store
+
+# LazyVim runtime state (plugins are restored from lazy-lock.json)
+nvim/lazyvim.json

@@ -145,6 +145,14 @@ command -v mise >/dev/null 2>&1 && eval "$(mise activate zsh)"
 # Falls back to the oh-my-zsh theme if Starship isn't installed yet.
 command -v starship >/dev/null 2>&1 && eval "$(starship init zsh)"
 
+# Neovim as the editor everywhere — git commit messages, `edit`, sudoedit.
+if command -v nvim >/dev/null 2>&1; then
+  export EDITOR=nvim
+  export VISUAL=nvim
+  alias vim=nvim
+  alias vi=nvim
+fi
+
 # ── modern CLI replacements ───────────────────────
 if command -v eza >/dev/null 2>&1; then
   alias ls='eza --group-directories-first'
