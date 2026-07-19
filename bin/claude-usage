@@ -15,12 +15,13 @@
  */
 
 import { execFileSync } from "child_process";
-import { readFileSync } from "fs";
+import { readFileSync, readdirSync, statSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 
 const CACHE = join(homedir(), ".cache", "cc-time-left", "usage-data.json");
 const FETCHER = join(homedir(), "dotfiles", "vendor", "gsong", "cc-time-left.mjs");
+const PROJECTS = join(homedir(), ".claude", "projects");
 
 const args = process.argv.slice(2);
 const SHORT = args.includes("--short");
@@ -51,6 +52,7 @@ if (JSON_OUT) {
 }
 
 const pct = (n) => `${Math.round(n)}%`;
+const fmt = (n) => n.toLocaleString("en-US");
 const dot = (p) => (p < 50 ? "🟢" : p < 80 ? "🟡" : "🔴");
 
 function humanDuration(ms) {
@@ -110,6 +112,91 @@ if (rows.length === 0) {
   }
 }
 
+// ── token usage ───────────────────────────────────
+// The usage API reports percentages only. Actual token counts live in the
+// local transcripts under ~/.claude/projects, one JSONL per session — the
+// same source ccusage reads.
+function newestTranscript(dir) {
+  let newest = null;
+  const walk = (d) => {
+    let entries;
+    try {
+      entries = readdirSync(d, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      const p = join(d, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith(".jsonl")) {
+        const { mtimeMs } = statSync(p);
+        if (!newest || mtimeMs > newest.mtimeMs) newest = { path: p, mtimeMs };
+      }
+    }
+  };
+  walk(dir);
+  return newest;
+}
+
+function sessionTokens(file) {
+  const totals = { input: 0, cacheWrite: 0, cacheRead: 0, output: 0 };
+  const byModel = new Map();
+
+  for (const line of readFileSync(file, "utf8").split("\n")) {
+    if (!line.includes('"usage"')) continue;
+    let entry;
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      continue; // partial line while the session is being written
+    }
+    const u = entry.message?.usage;
+    if (!u) continue;
+
+    const row = {
+      input: u.input_tokens || 0,
+      cacheWrite: u.cache_creation_input_tokens || 0,
+      cacheRead: u.cache_read_input_tokens || 0,
+      output: u.output_tokens || 0,
+    };
+    for (const k of Object.keys(totals)) totals[k] += row[k];
+
+    const model = entry.message?.model;
+    if (model) {
+      const acc = byModel.get(model) || { input: 0, output: 0 };
+      acc.input += row.input + row.cacheWrite + row.cacheRead;
+      acc.output += row.output;
+      byModel.set(model, acc);
+    }
+  }
+  return { totals, byModel };
+}
+
+const transcript = newestTranscript(PROJECTS);
+if (transcript) {
+  const { totals, byModel } = sessionTokens(transcript.path);
+  const total = totals.input + totals.cacheWrite + totals.cacheRead + totals.output;
+
+  if (total > 0) {
+    console.log();
+    console.log("  Tokens this session");
+    console.log(`    input      ${fmt(totals.input).padStart(12)}`);
+    console.log(`    cache write${fmt(totals.cacheWrite).padStart(12)}`);
+    console.log(`    cache read ${fmt(totals.cacheRead).padStart(12)}`);
+    console.log(`    output     ${fmt(totals.output).padStart(12)}`);
+    console.log(`    total      ${fmt(total).padStart(12)}`);
+
+    if (byModel.size > 1) {
+      console.log();
+      console.log("  By model (in / out)");
+      for (const [model, t] of [...byModel].sort((a, b) => b[1].output - a[1].output)) {
+        const name = model.replace(/^claude-/, "");
+        console.log(`    ${name.padEnd(14)} ${fmt(t.input).padStart(12)} / ${fmt(t.output)}`);
+      }
+    }
+  }
+}
+
 const spend = data.spend;
 if (spend?.enabled) {
   const amount = (spend.used?.amount_minor ?? 0) / 10 ** (spend.used?.exponent ?? 2);
@@ -122,4 +209,3 @@ if (spend?.enabled) {
 
 console.log();
 console.log(`  refreshed ${humanDuration(ageMs)} ago`);
-console.log("  token-level cost breakdown: npx ccusage@latest");
