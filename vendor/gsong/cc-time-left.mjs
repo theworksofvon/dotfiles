@@ -451,10 +451,14 @@ function analyzeBurnRate(usageData) {
     debug(sevenDayMsg);
   }
 
-  // Opus usage
-  if (usageData.seven_day_opus) {
+  // Model-scoped weekly limits, e.g. Fable. The legacy seven_day_opus field is
+  // null on current accounts, so read limits[] instead.
+  for (const entry of usageData.limits || []) {
+    if (entry.kind !== "weekly_scoped" || !entry.scope?.model?.display_name)
+      continue;
     debug(
-      `7-day Opus: ${usageData.seven_day_opus.utilization}% used, resets at ${usageData.seven_day_opus.resets_at || "unlimited"}`,
+      `7-day ${entry.scope.model.display_name}: ${entry.percent}% used, ` +
+        `severity ${entry.severity}, resets at ${entry.resets_at || "unlimited"}`,
     );
   }
 }
@@ -548,7 +552,27 @@ const sevenDayDisplay = buildSegmentDisplay(
   formatTimeRemaining,
 );
 
-console.log(`${fiveHourDisplay} ${sevenDayDisplay}`);
+// Model-scoped weekly limit — the separate, smaller quota attached to one model
+// (currently Fable). Reported in limits[]; the legacy seven_day_opus field is
+// null on current accounts, so reading that alone shows nothing.
+// Resets alongside the weekly window, so show percent used rather than a time.
+function buildScopedModelDisplay(data) {
+  const entry = (data.limits || []).find(
+    (l) => l.kind === "weekly_scoped" && l.scope?.model?.display_name,
+  );
+  if (!entry || !entry.resets_at) return "";
+
+  const indicator = getIndicatorForBurnRate(
+    entry.percent,
+    entry.resets_at,
+    PERIOD_DURATION.SEVEN_DAY,
+  );
+  return ` ${indicator}${entry.scope.model.display_name} ${entry.percent}%`;
+}
+
+console.log(
+  `${fiveHourDisplay} ${sevenDayDisplay}${buildScopedModelDisplay(usageData)}`,
+);
 
 // Debug: show additional info with burn rate analysis
 if (flags.debug) {

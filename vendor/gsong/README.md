@@ -10,6 +10,13 @@ These two scripts are **not my work**. They come from George Song's dotfiles:
   queries Anthropic's usage endpoint to report time left in the current 5-hour
   block and the 7-day window. Caches for 5 minutes.
 
+## Local modifications
+
+`cc-time-left.mjs` has been changed from upstream: it now reads model-scoped
+weekly limits out of the API's `limits[]` array and displays them (e.g.
+`🟢Fable 2%`). Upstream reads the legacy `seven_day_opus` field, which returns
+`null` on current accounts — so the model-specific quota never displayed.
+
 ## License status
 
 **That repository has no LICENSE file.** Under default copyright that means no
