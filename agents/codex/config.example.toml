@@ -1,0 +1,130 @@
+# Reference copy. The live file is gitignored because Codex rewrites it
+# with marketplace timestamps and machine-local runtime paths.
+notify = ["$HOME/.codex/computer-use/Codex Computer Use.app/Contents/SharedSupport/SkyComputerUseClient.app/Contents/MacOS/SkyComputerUseClient", "turn-ended"]
+model = "gpt-5.6-sol"
+model_reasoning_effort = "high"
+service_tier = "default"
+
+[marketplaces.openai-bundled]
+last_updated = "2026-07-14T23:59:36Z"
+source_type = "local"
+source = "$HOME/.codex/.tmp/bundled-marketplaces/openai-bundled"
+
+[marketplaces.openai-primary-runtime]
+last_updated = "2026-07-10T03:24:30Z"
+source_type = "local"
+source = "$HOME/.cache/codex-runtimes/codex-primary-runtime/plugins/openai-primary-runtime"
+
+[plugins."documents@openai-primary-runtime"]
+enabled = true
+
+[plugins."pdf@openai-primary-runtime"]
+enabled = true
+
+[plugins."spreadsheets@openai-primary-runtime"]
+enabled = true
+
+[plugins."presentations@openai-primary-runtime"]
+enabled = true
+
+[plugins."template-creator@openai-primary-runtime"]
+enabled = true
+
+[plugins."sites@openai-bundled"]
+enabled = true
+
+[plugins."visualize@openai-bundled"]
+enabled = true
+
+[plugins."browser@openai-bundled"]
+enabled = true
+
+[features]
+js_repl = false
+
+[mcp_servers.node_repl]
+args = []
+command = "/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node_repl"
+startup_timeout_sec = 120
+
+[mcp_servers.node_repl.env]
+NODE_REPL_NATIVE_PIPE_CONNECT_TIMEOUT_MS = "1000"
+NODE_REPL_NODE_MODULE_DIRS = "/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules"
+NODE_REPL_NODE_PATH = "/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node"
+NODE_REPL_TRUSTED_CODE_PATHS = "$HOME/.codex"
+CODEX_HOME = "$HOME/.codex"
+NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S = "57ee77a283eb230c6c6d47353af13a25cec4c331b511868c8fbf7ccd3dd1b2f6,6d25aa7656feac858f3a3bdaea5bcbab0dbfd426c9de8e6931ce90c399ee8e4f"
+BROWSER_USE_AVAILABLE_BACKENDS = "chrome,iab"
+NODE_REPL_INSTRUCTIONS_USE_CASE_BROWSER = "Control the in-app browser in conjunction with the Browser Plugin."
+NODE_REPL_INSTRUCTIONS_USE_CASE_CHROME = "Control the Chrome browser in conjunction with the Chrome Plugin. Prefer this method of controlling Chrome over alternatives (such as Computer Use) unless the user explicitly mentions an alternative."
+NODE_REPL_INSTRUCTIONS_USE_CASE_COMPUTER_USE = "Control desktop apps on macOS through Computer Use."
+BROWSER_USE_CODEX_APP_BUILD_FLAVOR = "prod"
+BROWSER_USE_CODEX_APP_VERSION = "26.707.71524"
+CODEX_CLI_PATH = "/Applications/ChatGPT.app/Contents/Resources/codex"
+
+[mcp_servers.computer-use]
+command = "./Codex Computer Use.app/Contents/SharedSupport/SkyComputerUseClient.app/Contents/MacOS/SkyComputerUseClient"
+args = ["mcp"]
+cwd = "."
+enabled = false
+
+[desktop]
+conversationDetailMode = "STEPS_PROSE"
+ambient-suggestions-enabled = true
+followUpQueueMode = "queue"
+dock-icon-preference = "app-default"
+
+[projects."$HOME/dev/trace-service"]
+trust_level = "trusted"
+
+[projects."$HOME/dev/pulse"]
+trust_level = "trusted"
+
+[projects."$HOME/Documents/Codex/2026-07-08/there-s-a-plan-in-the"]
+trust_level = "trusted"
+
+[projects."$HOME/dev/pluto-predicts"]
+trust_level = "trusted"
+
+[projects."$HOME/Documents/Codex/2026-07-08/i"]
+trust_level = "trusted"
+
+[projects."$HOME/Documents/scripts"]
+trust_level = "trusted"
+
+[projects."$HOME/dev/scripts"]
+trust_level = "trusted"
+
+[projects."$HOME/dev/agent-workflows"]
+trust_level = "trusted"
+
+[projects."$HOME/dev/skills"]
+trust_level = "trusted"
+
+[projects."$HOME/dev/theworksofvon.github.io"]
+trust_level = "trusted"
+
+[projects."$HOME/dev/curiosity-archive"]
+trust_level = "trusted"
+
+[projects."$HOME/dev/agent-workflows/state/repos/EK-LABS-LLC"]
+trust_level = "trusted"
+
+[projects."$HOME/dev/yt-mp3-mp4-converter"]
+trust_level = "trusted"
+
+[projects."$HOME/dev/model-pdf-handling"]
+trust_level = "trusted"
+
+[projects."$HOME/dev/pulse/trace-service"]
+trust_level = "trusted"
+
+[tui.model_availability_nux]
+"gpt-5.5" = 2
+"gpt-5.6-sol" = 4
+
+[apps.connector_76869538009648d5b282a4bb21c3d157.tools."github.create_pull_request"]
+approval_mode = "approve"
+
+[apps.connector_76869538009648d5b282a4bb21c3d157.tools."github.update_pull_request"]
+approval_mode = "approve"

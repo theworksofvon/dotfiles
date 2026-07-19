@@ -14,3 +14,6 @@ nvim/lazyvim.json
 
 # account identifiers are machine-local (see accounts.example.json)
 config/claude-account/accounts.json
+
+# codex rewrites config.toml (marketplace timestamps, local runtime paths)
+agents/codex/config.toml

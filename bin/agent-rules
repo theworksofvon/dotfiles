@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# agent-rules — put the shared agent instructions into a project.
+#
+# Claude and Codex read instructions from a global path, so they're covered by
+# install.sh. Cursor is not: its User Rules are UI-only and AGENTS.md is read
+# per-project. This drops AGENTS.md into a repo so Cursor (and Codex, and any
+# other AGENTS.md-aware tool) picks up the same rules.
+#
+#   agent-rules              symlink AGENTS.md into the current repo
+#   agent-rules --copy       copy instead, for repos shared with other people
+#   agent-rules --status     report what's in place, change nothing
+set -euo pipefail
+
+DOTFILES="${DOTFILES:-$HOME/dotfiles}"
+SOURCE="$DOTFILES/agents/AGENTS.md"
+MODE=link
+
+for arg in "$@"; do
+  case "$arg" in
+    --copy)   MODE=copy ;;
+    --status) MODE=status ;;
+    -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
+    *) echo "unknown option: $arg" >&2; exit 1 ;;
+  esac
+done
+
+[ -f "$SOURCE" ] || { echo "No instructions at $SOURCE" >&2; exit 1; }
+
+root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+target="$root/AGENTS.md"
+
+if [ "$MODE" = status ]; then
+  echo "project: $root"
+  if [ -L "$target" ]; then
+    echo "  AGENTS.md -> $(readlink "$target")"
+  elif [ -f "$target" ]; then
+    echo "  AGENTS.md present (regular file)"
+  else
+    echo "  AGENTS.md absent"
+  fi
+  # Claude reads CLAUDE.md; note it separately so the picture is complete.
+  [ -e "$root/CLAUDE.md" ] && echo "  CLAUDE.md present" || echo "  CLAUDE.md absent"
+  exit 0
+fi
+
+# Never clobber a project's own instructions — they outrank personal defaults.
+if [ -e "$target" ] && [ ! -L "$target" ]; then
+  echo "$target already exists and is not a symlink — leaving it alone." >&2
+  exit 1
+fi
+
+if [ "$MODE" = copy ]; then
+  cp "$SOURCE" "$target"
+  echo "copied  $target"
+else
+  ln -sfn "$SOURCE" "$target"
+  echo "linked  $target -> $SOURCE"
+fi
+
+# A symlink pointing into someone's home directory is meaningless to everyone
+# else, so keep it out of commits unless the project opted in.
+if git -C "$root" rev-parse --git-dir >/dev/null 2>&1; then
+  exclude="$(git -C "$root" rev-parse --git-dir)/info/exclude"
+  if ! grep -qx "AGENTS.md" "$exclude" 2>/dev/null; then
+    echo "AGENTS.md" >> "$exclude"
+    echo "        (ignored locally via .git/info/exclude)"
+  fi
+fi

@@ -23,6 +23,8 @@ $rust\
 $nodejs\
 $kubernetes\
 $aws\
+${custom.claude}\
+${custom.codex}\
 $cmd_duration\
 $battery\
 $time
@@ -114,3 +116,15 @@ format = "\n[│ ](dim)[🕐 $time](blue)"
 success_symbol = "[❯](bold cyan)"
 error_symbol = "[❯](bold orange)"
 vicmd_symbol = "[❮](bold blue)"
+
+# ── agent usage ───────────────────────────────────
+# Same meters as the bridge preset, so switching prompts doesn't lose them.
+[custom.claude]
+command = '"$HOME/dotfiles/bin/claude-usage" --prompt'
+when = true
+format = "[$output](blue)[ │](dim) "
+
+[custom.codex]
+command = '"$HOME/dotfiles/bin/codex-usage" --short'
+when = 'test -d "$HOME/.codex/sessions"'
+format = "[ᛢ $output](orange)[ │](dim) "

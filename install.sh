@@ -53,23 +53,50 @@ echo "tmux"       ; link tmux/tmux.conf     "$HOME/.tmux.conf"
 echo "Ghostty"    ; link ghostty/config     "$HOME/.config/ghostty/config"
 echo "Neovim"     ; link nvim               "$HOME/.config/nvim"
 echo "mise"       ; link mise/config.toml   "$HOME/.config/mise/config.toml"
-echo "Claude Code"
-link claude/settings.json "$HOME/.claude/settings.json"
-link config/ccstatusline/settings.json  "$HOME/.config/ccstatusline/settings.json"
-# Account labels hold a personal org ID, so they're gitignored. Seed from the
-# example on a fresh machine; claude-account falls back to the email prefix
-# if it's never filled in.
-if [ ! -e "$DOTFILES/config/claude-account/accounts.json" ] && ! $DRY_RUN; then
-  cp "$DOTFILES/config/claude-account/accounts.example.json" \
-     "$DOTFILES/config/claude-account/accounts.json"
-fi
-link config/claude-account/accounts.json "$HOME/.config/claude-account/accounts.json"
+# gh's config.yml holds preferences and aliases only — credentials live in
+# hosts.yml, which is deliberately not tracked.
+echo "gh"         ; link config/gh/config.yml "$HOME/.config/gh/config.yml"
+# ── coding agents ─────────────────────────────────
+# Each agent is configured only if it's actually installed, so this works with
+# one of them, two, or all three. agents/AGENTS.md is the single source of
+# instructions; each tool reads it under the name it expects.
+echo "Agents"
 
-# One instructions file, two agents: Claude reads CLAUDE.md, Codex reads
-# AGENTS.md. Both point at the same source so they can't drift apart.
-echo "Agent instructions"
-link ai/instructions.md "$HOME/.claude/CLAUDE.md"
-link ai/instructions.md "$HOME/.codex/AGENTS.md"
+if [ -d "$HOME/.claude" ] || command -v claude >/dev/null 2>&1; then
+  link agents/AGENTS.md          "$HOME/.claude/CLAUDE.md"
+  link agents/claude/settings.json "$HOME/.claude/settings.json"
+  link config/ccstatusline/settings.json "$HOME/.config/ccstatusline/settings.json"
+  # Account labels hold a personal org ID, so they're gitignored. Seed from the
+  # example; claude-account falls back to the email prefix if never filled in.
+  if [ ! -e "$DOTFILES/config/claude-account/accounts.json" ] && ! $DRY_RUN; then
+    cp "$DOTFILES/config/claude-account/accounts.example.json" \
+       "$DOTFILES/config/claude-account/accounts.json"
+  fi
+  link config/claude-account/accounts.json "$HOME/.config/claude-account/accounts.json"
+else
+  echo "  ${dim}·${reset} Claude Code not installed, skipped"
+fi
+
+if [ -d "$HOME/.codex" ] || command -v codex >/dev/null 2>&1; then
+  link agents/AGENTS.md "$HOME/.codex/AGENTS.md"
+  # Codex rewrites config.toml as it runs, so the live file is gitignored and
+  # seeded from the example rather than tracked (which would churn constantly).
+  if [ ! -e "$DOTFILES/agents/codex/config.toml" ] && ! $DRY_RUN; then
+    cp "$DOTFILES/agents/codex/config.example.toml" "$DOTFILES/agents/codex/config.toml"
+  fi
+  link agents/codex/config.toml "$HOME/.codex/config.toml"
+else
+  echo "  ${dim}·${reset} Codex not installed, skipped"
+fi
+
+if [ -d "$HOME/.cursor" ] || command -v cursor-agent >/dev/null 2>&1; then
+  link agents/cursor/cli-config.json "$HOME/.cursor/cli-config.json"
+  # Cursor has no global instructions file — User Rules are UI-only and
+  # AGENTS.md is read per-project. `agent-rules` drops it into a project.
+  echo "  ${dim}·${reset} Cursor: run 'agent-rules' in a project for AGENTS.md"
+else
+  echo "  ${dim}·${reset} Cursor not installed, skipped"
+fi
 
 echo "Starship"
 link starship/bridge.toml  "$HOME/.config/starship/bridge.toml"
