@@ -25,6 +25,7 @@ $docker_context\
 $kubernetes\
 $fill\
 ${custom.claude}\
+${custom.codex}\
 $battery\
 $cmd_duration\
 $time
@@ -90,6 +91,13 @@ format = "[│](dim) [$symbol$context](cyan) "
 command = 'node "$HOME/dotfiles/vendor/gsong/cc-time-left.mjs"'
 when = true
 format = "[$output](blue)[ │](dim) "
+
+# Codex weekly quota, read from its local session logs (see bin/codex-usage).
+# Hidden when Codex has never run on this machine.
+[custom.codex]
+command = '"$HOME/dotfiles/bin/codex-usage" --short'
+when = 'test -d "$HOME/.codex/sessions"'
+format = "[ᗢ $output](orange)[ │](dim) "
 
 [battery]
 full_symbol = "󰁹 "

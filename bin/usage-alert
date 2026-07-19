@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# usage-alert — notify when Claude or Codex quota crosses a threshold.
+#
+# The prompt and `usage` are both pull: you only see them if you look. This
+# pushes, so a quota climbing toward its limit reaches you without asking.
+#
+# Throttled to one notification per provider per hour, and silent when nothing
+# has crossed — safe to call from a shell startup or a cron entry.
+#
+#   usage-alert            check both, notify if over threshold
+#   usage-alert --force    ignore the throttle
+#   usage-alert --check    print status, never notify (for testing)
+set -uo pipefail
+
+THRESHOLD=${USAGE_ALERT_THRESHOLD:-80}
+THROTTLE_SECONDS=3600
+STATE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/usage-alert"
+FORCE=false
+CHECK_ONLY=false
+
+for arg in "$@"; do
+  case "$arg" in
+    --force) FORCE=true ;;
+    --check) CHECK_ONLY=true ;;
+  esac
+done
+
+mkdir -p "$STATE_DIR"
+
+notify() {
+  local title="$1" message="$2"
+  osascript -e "display notification \"$message\" with title \"$title\" sound name \"Ping\"" \
+    >/dev/null 2>&1
+}
+
+# Fire at most once per provider per hour, so a quota sitting above the
+# threshold doesn't notify on every new shell.
+should_notify() {
+  $FORCE && return 0
+  local stamp="$STATE_DIR/$1.last"
+  [ -f "$stamp" ] || return 0
+  local last now
+  last=$(cat "$stamp" 2>/dev/null || echo 0)
+  now=$(date +%s)
+  [ $((now - last)) -ge $THROTTLE_SECONDS ]
+}
+
+mark_notified() { date +%s > "$STATE_DIR/$1.last"; }
+
+# Highest percentage across all of a provider's windows.
+peak_percent() {
+  "$1" --short 2>/dev/null |
+    grep -o '[0-9]\+%' | tr -d '%' | sort -rn | head -1
+}
+
+check() {
+  local name="$1" cmd="$2" peak
+  command -v "$cmd" >/dev/null 2>&1 || return 0
+
+  peak=$(peak_percent "$cmd")
+  [ -n "$peak" ] || return 0
+
+  if $CHECK_ONLY; then
+    printf "  %-8s peak %s%%  (threshold %s%%)\n" "$name" "$peak" "$THRESHOLD"
+    return 0
+  fi
+
+  if [ "$peak" -ge "$THRESHOLD" ] && should_notify "$name"; then
+    notify "$name usage at ${peak}%" "Run 'usage' for the breakdown."
+    mark_notified "$name"
+  fi
+}
+
+$CHECK_ONLY && echo "usage-alert status:"
+check Claude claude-usage
+check Codex codex-usage

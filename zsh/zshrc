@@ -72,6 +72,9 @@ ZSH_THEME="robbyrussell"
 # Add wisely, as too many plugins slow down shell startup.
 plugins=(git)
 
+# zsh-autosuggestions and zsh-syntax-highlighting come from Homebrew rather
+# than $ZSH_CUSTOM, so they're sourced below the oh-my-zsh init instead.
+
 [ -s "$ZSH/oh-my-zsh.sh" ] && source "$ZSH/oh-my-zsh.sh"
 
 # User configuration
@@ -142,13 +145,48 @@ command -v mise >/dev/null 2>&1 && eval "$(mise activate zsh)"
 # Falls back to the oh-my-zsh theme if Starship isn't installed yet.
 command -v starship >/dev/null 2>&1 && eval "$(starship init zsh)"
 
-# AI usage at a glance: `usage` for both, or claude-usage / codex-usage alone.
-# Both live in ~/dotfiles/bin (on PATH above).
-usage() {
+# ── modern CLI replacements ───────────────────────
+if command -v eza >/dev/null 2>&1; then
+  alias ls='eza --group-directories-first'
+  alias ll='eza -l --git --group-directories-first'
+  alias la='eza -la --git --group-directories-first'
+  alias tree='eza --tree'
+fi
+command -v bat >/dev/null 2>&1 && alias cat='bat --paging=never'
+
+# zoxide learns the directories you visit: `z partial-name` jumps to the best
+# match. `cd` is left alone so muscle memory still works.
+command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init zsh)"
+
+# fzf: Ctrl-R fuzzy history, Ctrl-T file picker, Alt-C directory jump.
+if command -v fzf >/dev/null 2>&1; then
+  source <(fzf --zsh) 2>/dev/null
+  export FZF_DEFAULT_OPTS="--height 40% --layout=reverse --border --info=inline"
+  command -v fd >/dev/null 2>&1 && export FZF_DEFAULT_COMMAND='fd --type f --hidden --exclude .git'
+fi
+
+# ── zsh plugins ───────────────────────────────────
+# Order matters: syntax-highlighting must be sourced last, and
+# autosuggestions expects to come before it.
+_zsh_plugin_dir="${HOMEBREW_PREFIX:-/opt/homebrew}/share"
+[ -s "$_zsh_plugin_dir/zsh-autosuggestions/zsh-autosuggestions.zsh" ] &&
+  source "$_zsh_plugin_dir/zsh-autosuggestions/zsh-autosuggestions.zsh"
+[ -s "$_zsh_plugin_dir/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ] &&
+  source "$_zsh_plugin_dir/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+unset _zsh_plugin_dir
+
+# AI usage at a glance: `ai-usage` for both, or claude-usage / codex-usage
+# alone. Both live in ~/dotfiles/bin (on PATH above).
+# Not named `usage` — that's usage-cli, which mise depends on.
+ai-usage() {
   claude-usage "$@"
   echo
   codex-usage "$@"
 }
+
+# Push notification when a quota crosses 80%. Backgrounded so it never delays
+# the prompt, and self-throttled to once per provider per hour.
+command -v usage-alert >/dev/null 2>&1 && (usage-alert &) >/dev/null 2>&1
 
 # Switch between prompt presets: `prompt-style bridge` or `prompt-style mission`
 # Re-points the symlink rather than copying, so editing ~/.config/starship.toml

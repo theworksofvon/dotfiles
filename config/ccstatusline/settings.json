@@ -1,0 +1,53 @@
+{
+  "version": 3,
+  "flexMode": "full-until-compact",
+  "powerline": { "enabled": false },
+  "lines": [
+    [
+      {
+        "id": "auth",
+        "type": "custom-command",
+        "commandPath": "node \"$HOME/dotfiles/vendor/gsong/cc-auth-status.mjs\"",
+        "preserveColors": true
+      },
+      { "id": "sep1", "type": "separator", "character": "|" },
+      {
+        "id": "model",
+        "type": "model",
+        "color": "brightGreen",
+        "rawValue": true
+      },
+      { "id": "sep2", "type": "separator", "character": "|" },
+      {
+        "id": "ctxpct",
+        "type": "context-percentage",
+        "color": "brightYellow",
+        "rawValue": true
+      },
+      { "id": "open", "type": "custom-text", "customText": " (" },
+      {
+        "id": "ctxlen",
+        "type": "context-length",
+        "color": "brightMagenta",
+        "rawValue": true
+      },
+      { "id": "close", "type": "custom-text", "customText": ") | ⟳ " },
+      {
+        "id": "usage",
+        "type": "custom-command",
+        "commandPath": "node \"$HOME/dotfiles/vendor/gsong/cc-time-left.mjs\""
+      }
+    ],
+    [
+      { "id": "cwd", "type": "current-working-dir", "color": "cyan" },
+      {
+        "id": "pr",
+        "type": "custom-command",
+        "commandPath": "node \"$HOME/dotfiles/vendor/gsong/cc-pr-number.mjs\""
+      },
+      { "id": "sep3", "type": "separator", "character": "|" },
+      { "id": "branch", "type": "git-branch", "color": "brightBlue" },
+      { "id": "gitstatus", "type": "git-status", "color": "brightYellow" }
+    ]
+  ]
+}

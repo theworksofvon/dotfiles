@@ -86,7 +86,8 @@ if $DO_INSTALL; then
   }
 
   step "CLI tools"
-  for f in starship mise jq git tmux; do
+  for f in starship mise jq git tmux fzf eza bat zoxide git-delta ripgrep fd \
+           zsh-autosuggestions zsh-syntax-highlighting; do
     have brew && brew_formula "$f" || warn "brew unavailable, skipping $f"
   done
 

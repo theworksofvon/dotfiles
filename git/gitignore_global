@@ -1,0 +1,32 @@
+# Applies to every repo via core.excludesfile — for things that are about *my*
+# machine and tools, not any particular project. Project-specific ignores
+# belong in that project's .gitignore.
+
+# macOS
+.DS_Store
+.AppleDouble
+._*
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# AI tooling
+.aider*
+.claude/settings.local.json
+CLAUDE.local.md
+.claude-trace/
+.codex/
+ai-swap/
+
+# Local env and secrets — never commit by accident
+.env.local
+.envrc.local
+*.pem
+
+# Worktrees and scratch
+.worktrees/
+*.bak

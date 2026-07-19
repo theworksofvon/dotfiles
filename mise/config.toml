@@ -1,4 +1,5 @@
 [tools]
+"npm:ccstatusline" = "latest"
 "npm:prettier" = "latest"
 "pipx:sqlfluff" = "latest"
 

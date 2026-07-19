@@ -46,11 +46,17 @@ link() {
 }
 
 echo "Shell"      ; link zsh/zshrc          "$HOME/.zshrc"
-echo "Git"        ; link git/gitconfig      "$HOME/.gitconfig"
+echo "Git"
+link git/gitconfig        "$HOME/.gitconfig"
+link git/gitignore_global "$HOME/.gitignore_global"
 echo "tmux"       ; link tmux/tmux.conf     "$HOME/.tmux.conf"
 echo "Ghostty"    ; link ghostty/config     "$HOME/.config/ghostty/config"
 echo "mise"       ; link mise/config.toml   "$HOME/.config/mise/config.toml"
-echo "Claude Code"; link claude/settings.json "$HOME/.claude/settings.json"
+echo "Claude Code"
+link claude/settings.json "$HOME/.claude/settings.json"
+link claude/CLAUDE.md     "$HOME/.claude/CLAUDE.md"
+link config/ccstatusline/settings.json  "$HOME/.config/ccstatusline/settings.json"
+link config/cc-auth-status/accounts.json "$HOME/.config/cc-auth-status/accounts.json"
 
 echo "Starship"
 link starship/bridge.toml  "$HOME/.config/starship/bridge.toml"
@@ -70,7 +76,7 @@ else
   echo "  ${dim}·${reset} active prompt -> $(basename "$(readlink "$HOME/.config/starship.toml")" .toml)"
 fi
 
-$DRY_RUN || chmod +x "$DOTFILES"/vendor/gsong/*.mjs
+$DRY_RUN || chmod +x "$DOTFILES"/vendor/gsong/*.mjs "$DOTFILES"/bin/*
 
 echo
 if $DRY_RUN; then
