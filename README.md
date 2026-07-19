@@ -47,6 +47,11 @@ skipped, not errors.
 remembers how you resolved a conflict and replays it next time. Rebase
 autosquashes and autostashes; push sets upstream automatically.
 
+**tmux** — mainly for persistence: `C-b d` detaches, `tmux a` reattaches, and
+long-running work survives closing the terminal. Default `C-b` prefix so any
+cheatsheet applies. `C-b |` and `C-b -` split, `C-b hjkl` moves between panes,
+`y` in copy mode yanks to the system clipboard. Styled to match the prompt.
+
 **Shell** — oh-my-zsh with nvm, bun, and mise. Also a Claude account switcher
 (`claude-personal`, `claude-cm`) that swaps logins via the Keychain, since macOS
 only stores one set of credentials at a time.
@@ -60,7 +65,7 @@ a bad package to be caught upstream. Node projects want
 ```
 setup.sh     install prerequisites, then link
 install.sh   link only
-zsh/ git/ starship/ ghostty/ mise/ claude/
+zsh/ git/ tmux/ starship/ ghostty/ mise/ claude/
 vendor/      borrowed scripts — see vendor/gsong/README.md
 ```
 

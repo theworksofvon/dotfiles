@@ -126,6 +126,14 @@ fi
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
+# Ghostty injects its shell integration automatically, but that injection
+# doesn't survive into tmux — re-source it manually there.
+if [ -n "${TMUX:-}" ] && [ -n "${GHOSTTY_RESOURCES_DIR:-}" ]; then
+  _gi="$GHOSTTY_RESOURCES_DIR/shell-integration/zsh/ghostty-integration"
+  [ -s "$_gi" ] && source "$_gi"
+  unset _gi
+fi
+
 # mise — manages CLI tools (prettier, sqlfluff). Node stays with nvm above,
 # since mise's config declares no node/python runtime.
 command -v mise >/dev/null 2>&1 && eval "$(mise activate zsh)"

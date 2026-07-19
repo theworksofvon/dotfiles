@@ -86,7 +86,7 @@ if $DO_INSTALL; then
   }
 
   step "CLI tools"
-  for f in starship mise jq git; do
+  for f in starship mise jq git tmux; do
     have brew && brew_formula "$f" || warn "brew unavailable, skipping $f"
   done
 

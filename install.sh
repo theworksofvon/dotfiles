@@ -47,6 +47,7 @@ link() {
 
 echo "Shell"      ; link zsh/zshrc          "$HOME/.zshrc"
 echo "Git"        ; link git/gitconfig      "$HOME/.gitconfig"
+echo "tmux"       ; link tmux/tmux.conf     "$HOME/.tmux.conf"
 echo "Ghostty"    ; link ghostty/config     "$HOME/.config/ghostty/config"
 echo "mise"       ; link mise/config.toml   "$HOME/.config/mise/config.toml"
 echo "Claude Code"; link claude/settings.json "$HOME/.claude/settings.json"
