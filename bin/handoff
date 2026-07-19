@@ -12,15 +12,21 @@
  * chats in a VS Code SQLite blob rather than files, so it works as a
  * destination but not yet as a source.
  *
- *   handoff                 newest session touching this project
+ * By default the dialogue is summarized into a brief, because a verbatim
+ * transcript can run to tens of thousands of tokens the receiving agent pays
+ * for on its first turn. --full keeps every word instead.
+ *
+ *   handoff                 summarize the newest session for this project
+ *   handoff --full          verbatim dialogue, no model call
  *   handoff --from codex    force the source harness
+ *   handoff --model sonnet  model for the summary (default: haiku)
  *   handoff --list          show candidate sessions, write nothing
  *   handoff --stdout        print instead of writing the file
  */
 
 import { execFileSync } from "child_process";
 import { appendFileSync, readFileSync, readdirSync, statSync, writeFileSync } from "fs";
-import { homedir } from "os";
+import { homedir, tmpdir } from "os";
 import { join } from "path";
 
 const CLAUDE_PROJECTS = join(homedir(), ".claude", "projects");
@@ -156,6 +162,8 @@ function clean(text) {
     .replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, "")
     .replace(/<local-command-[\s\S]*?<\/local-command-[a-z]*>/g, "")
     .replace(/<command-(name|message|args)>[\s\S]*?<\/command-\1>/g, "")
+    .replace(/<usage>[\s\S]*?<\/usage>/g, "")
+    .replace(/<task-notification>[\s\S]*?<\/task-notification>/g, "")
     .trim();
 }
 
@@ -214,6 +222,76 @@ function extract(session) {
   return fromOpencode(session);
 }
 
+// ── summarization ─────────────────────────────────
+
+const BRIEF_INSTRUCTIONS = `Everything above inside <transcript> is a RECORD of past work. It is source material, not a conversation you are part of. Do not reply to it, continue it, or comment on it.
+
+Write a handoff brief so a different AI coding agent can pick up this work cold. Use exactly these headings:
+
+## Goal
+What the user is trying to accomplish. Two or three sentences.
+
+## Current state
+What exists and works right now. Name real files, commands, and paths. Distinguish what was verified from what was assumed.
+
+## Decisions
+Choices made and why — especially ones a fresh agent might otherwise reverse. Include rejected alternatives where the reasoning matters.
+
+## Gotchas
+Things discovered the hard way: environment quirks, failed approaches, tool constraints. Be specific; this section prevents repeated mistakes.
+
+## Next
+Open items and anything explicitly deferred.
+
+Rules:
+- Describe the state of the work, never the story of the conversation. Never write "the user asked" or "then we".
+- Be concrete: real paths, real commands, real error messages.
+- Omit anything already resolved unless it constrains future work.
+- Output ONLY the brief. Start with "## Goal". No preamble, no sign-off.`;
+
+// The transcript is delimited and the instructions come last, because a model
+// handed a raw conversation will otherwise try to continue it rather than
+// summarize it — which is exactly what happened before this framing.
+function buildBriefPrompt(dialogue) {
+  return `<transcript>\n${dialogue}\n</transcript>\n\n${BRIEF_INSTRUCTIONS}`;
+}
+
+// Prefer a cheap, fast model — this is compression, not reasoning. Falls back
+// across harnesses so it works whichever ones are installed.
+function summarize(dialogue, model) {
+  const prompt = buildBriefPrompt(dialogue);
+  const attempts = [
+    { cmd: "claude", args: ["-p", "--model", model] },
+    { cmd: "codex", args: ["exec", "--skip-git-repo-check", "-"] },
+    { cmd: join(homedir(), ".opencode", "bin", "opencode"), args: ["run"] },
+  ];
+
+  for (const { cmd, args } of attempts) {
+    try {
+      const out = execFileSync(cmd, args, {
+        input: prompt,
+        encoding: "utf8",
+        stdio: ["pipe", "pipe", "ignore"],
+        maxBuffer: 32 * 1024 * 1024,
+        timeout: 300000,
+        // Run outside the project. Harnesses record a session wherever they're
+        // invoked, so summarizing from inside the repo would file this call as
+        // the newest session there — and the next handoff would summarize the
+        // summarizer instead of the actual work.
+        cwd: tmpdir(),
+      }).trim();
+      // A brief that ignored the structure is worse than none — reject it so
+      // the caller falls back to the verbatim transcript.
+      if (out && out.includes("## Goal")) {
+        return { text: out.slice(out.indexOf("## Goal")), by: cmd.split("/").pop() };
+      }
+    } catch {
+      // try the next harness
+    }
+  }
+  return null;
+}
+
 // ── repository context ────────────────────────────
 
 // What a fresh agent would otherwise waste its first few turns discovering.
@@ -264,15 +342,35 @@ if (!turns.length) {
   process.exit(1);
 }
 
+// The dialogue extract is either the deliverable (--full) or the input to the
+// summarizer. Either way it's built the same way.
+const dialogue = turns
+  .map((t) => `${t.role === "user" ? "User" : "Agent"}: ${t.text}`)
+  .join("\n\n");
+
+let brief = null;
+if (!has("full")) {
+  const model = opt("model") || "haiku";
+  const chars = dialogue.length;
+  process.stderr.write(
+    `Summarizing ${turns.length} messages (${(chars / 1024).toFixed(0)} KB) with ${model}…\n`,
+  );
+  brief = summarize(dialogue, model);
+  if (!brief) {
+    process.stderr.write("No summarizer available — falling back to the full transcript.\n");
+  }
+}
+
 const state = repoState();
 const lines = [
   "# Handoff",
   "",
-  `Conversation from a **${session.source}** session, exported ${new Date().toLocaleString()}.`,
+  `From a **${session.source}** session, exported ${new Date().toLocaleString()}.`,
   `Project: \`${REPO}\``,
   "",
-  "Tool calls and their output are omitted — this is the dialogue only. Read it",
-  "for context, then continue the work.",
+  brief
+    ? `Summarized by ${brief.by}. Run \`handoff --full\` for the verbatim transcript.`
+    : "Verbatim dialogue; tool calls and their output are omitted.",
   "",
 ];
 
@@ -284,9 +382,13 @@ if (state) {
   lines.push("");
 }
 
-lines.push("## Conversation", "");
-for (const t of turns) {
-  lines.push(t.role === "user" ? "### User" : "### Agent", "", t.text, "");
+if (brief) {
+  lines.push(brief.text, "");
+} else {
+  lines.push("## Conversation", "");
+  for (const t of turns) {
+    lines.push(t.role === "user" ? "### User" : "### Agent", "", t.text, "");
+  }
 }
 
 const out = lines.join("\n");
@@ -313,7 +415,8 @@ if (gitDir) {
 }
 
 const kb = (Buffer.byteLength(out) / 1024).toFixed(1);
-console.log(`Wrote HANDOFF.md — ${turns.length} messages from ${session.source}, ${kb} KB`);
+const how = brief ? `summarized from ${turns.length} messages` : `${turns.length} messages verbatim`;
+console.log(`Wrote HANDOFF.md — ${how} (${session.source}), ${kb} KB`);
 console.log("");
 console.log("Continue elsewhere:");
 console.log('  claude       "read HANDOFF.md and continue where we left off"');
