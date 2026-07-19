@@ -145,6 +145,16 @@ command -v mise >/dev/null 2>&1 && eval "$(mise activate zsh)"
 # Falls back to the oh-my-zsh theme if Starship isn't installed yet.
 command -v starship >/dev/null 2>&1 && eval "$(starship init zsh)"
 
+# ── history ───────────────────────────────────────
+# oh-my-zsh sets HISTSIZE=50000 but SAVEHIST=10000, so 50k commands accumulate
+# in memory and only the newest 10k survive the shell exiting. Match them.
+HISTSIZE=50000
+SAVEHIST=50000
+setopt EXTENDED_HISTORY       # record timestamps
+setopt HIST_IGNORE_SPACE      # a leading space keeps a command out of history
+setopt HIST_REDUCE_BLANKS     # tidy whitespace before saving
+setopt HIST_VERIFY            # expand !! for review instead of running it blind
+
 # Neovim as the editor everywhere — git commit messages, `edit`, sudoedit.
 if command -v nvim >/dev/null 2>&1; then
   export EDITOR=nvim

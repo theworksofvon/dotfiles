@@ -72,31 +72,34 @@ if $DO_INSTALL; then
   # Make brew available to the rest of this script even on a fresh install.
   [ -x "$BREW_PREFIX/bin/brew" ] && eval "$("$BREW_PREFIX/bin/brew" shellenv)"
 
-  brew_formula() {
-    if brew list --formula "$1" >/dev/null 2>&1; then ok "$1"
-    else act "installing $1"; run brew install "$1"; fi
-  }
-  # Casks: an app installed outside Homebrew still counts as present, so check
-  # for the .app bundle too rather than reinstalling over it.
-  brew_cask() {
-    local cask="$1" app="${2:-}"
-    if brew list --cask "$cask" >/dev/null 2>&1; then ok "$cask"
-    elif [ -n "$app" ] && [ -d "/Applications/$app" ]; then ok "$cask (installed outside Homebrew)"
-    else act "installing $cask"; run brew install --cask "$cask"; fi
-  }
+  # Packages live in ./Brewfile, not in this script — adding one is a one-line
+  # edit there. `brew bundle` is itself idempotent: it skips what's installed.
+  step "Packages (Brewfile)"
+  if have brew; then
+    # An app dragged to /Applications isn't known to Homebrew, so `brew bundle`
+    # would try to install over it and fail. Hand ownership to brew instead.
+    if $IS_MAC; then
+      while read -r cask; do
+        [ -n "$cask" ] || continue
+        brew list --cask "$cask" >/dev/null 2>&1 && continue
+        for app in /Applications/*.app; do
+          name=$(basename "$app" .app)
+          if [ "$(echo "$name" | tr '[:upper:]' '[:lower:]')" = "$cask" ]; then
+            act "adopting existing $name.app into Homebrew"
+            run brew install --cask --adopt "$cask"
+            break
+          fi
+        done
+      done < <(grep '^cask "' "$DOTFILES/Brewfile" | sed 's/^cask "\([^"]*\)".*/\1/')
+    fi
 
-  step "CLI tools"
-  for f in starship mise jq git tmux fzf eza bat zoxide git-delta ripgrep fd \
-           zsh-autosuggestions zsh-syntax-highlighting; do
-    have brew && brew_formula "$f" || warn "brew unavailable, skipping $f"
-  done
-
-  step "Apps and fonts"
-  if $IS_MAC; then
-    brew_cask ghostty Ghostty.app
-    brew_cask font-jetbrains-mono-nerd-font
+    if $DRY_RUN; then
+      brew bundle check --file="$DOTFILES/Brewfile" --verbose 2>&1 | sed 's/^/  /' || true
+    else
+      brew bundle --file="$DOTFILES/Brewfile" --no-upgrade
+    fi
   else
-    ok "skipped (casks are macOS-only)"
+    warn "brew unavailable — skipping packages"
   fi
 
   step "oh-my-zsh"
