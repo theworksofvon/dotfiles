@@ -4,6 +4,7 @@ notify = ["$HOME/.codex/computer-use/Codex Computer Use.app/Contents/SharedSuppo
 model = "gpt-5.6-sol"
 model_reasoning_effort = "high"
 service_tier = "default"
+commit_attribution = ""
 
 # ── guardrails ────────────────────────────────────
 # Writes are confined to the workspace; anything outside it requires approval.

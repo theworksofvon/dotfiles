@@ -43,6 +43,8 @@ instructions override it.
 - `git push --force-with-lease`, never `--force`.
 - Commit or push only when asked. Never post PR comments unless explicitly
   told to — review output stays in the conversation.
+- Do not add AI attribution, co-author trailers, generated-by text, or agent
+  session links to commits, PR titles, or PR bodies.
 - Never commit secrets, `.env` files, or credentials.
 
 ## Changelogs
