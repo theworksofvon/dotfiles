@@ -1,18 +1,12 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "model": "opus",
-  "theme": "dark",
   "attribution": {
     "commit": "",
     "pr": "",
     "sessionUrl": false
   },
-  "statusLine": {
-    "type": "command",
-    "command": "ccstatusline",
-    "padding": 0
-  },
   "permissions": {
+    "allow": [],
     "deny": [
       "Bash(rm -rf /*)",
       "Bash(rm -rf ~*)",
@@ -85,16 +79,9 @@
       "Bash(terraform destroy:*)",
       "Bash(kubectl delete:*)",
       "Bash(dropdb:*)"
-    ],
-    "allow": []
+    ]
   },
-  "mcpServers": {
-    "context7": {
-      "command": "context7-mcp",
-      "args": [],
-      "env": {}
-    }
-  },
+  "model": "claude-fable-5[1m]",
   "hooks": {
     "Stop": [
       {
@@ -134,10 +121,19 @@
           {
             "type": "command",
             "command": "\"$HOME/.dotfiles/bin/guard-main\""
+          },
+          {
+            "type": "command",
+            "command": "\"$HOME/.dotfiles/bin/guard-shell-bomb\""
           }
         ]
       }
     ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "ccstatusline",
+    "padding": 0
   },
   "enabledPlugins": {
     "superpowers@claude-plugins-official": true,
@@ -160,6 +156,14 @@
         "repo": "openai/codex-plugin-cc"
       },
       "autoUpdate": true
+    }
+  },
+  "theme": "dark",
+  "mcpServers": {
+    "context7": {
+      "command": "context7-mcp",
+      "args": [],
+      "env": {}
     }
   }
 }
