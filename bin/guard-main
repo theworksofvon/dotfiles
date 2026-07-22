@@ -1,0 +1,212 @@
+#!/usr/bin/env node
+/**
+ * guard-main — block agent pushes and merges to the default branch.
+ *
+ * A pattern rule can't catch this. `git push` run while checked out on main
+ * doesn't mention "main" anywhere in the command text, so a static matcher
+ * either misses it or has to prompt on every push. This runs as a PreToolUse
+ * hook, so it can inspect the actual branch before the command executes.
+ *
+ * Wired into Claude Code and Codex, which both intercept shell calls this way.
+ * Reads the hook payload as JSON on stdin; exits non-zero to block.
+ *
+ *   echo '{"tool_input":{"command":"git push"}}' | guard-main
+ *   guard-main --test 'git push origin main'
+ */
+
+import { execFileSync } from "child_process";
+import { readFileSync } from "fs";
+
+const argv = process.argv.slice(2);
+let gitCwd = process.cwd();
+
+const sh = (cmd, args) => {
+  try {
+    return execFileSync(cmd, args, {
+      cwd: gitCwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return "";
+  }
+};
+
+// Whatever the repo calls its trunk — don't assume "main".
+function defaultBranch() {
+  const head = sh("git", [
+    "symbolic-ref",
+    "--quiet",
+    "refs/remotes/origin/HEAD",
+  ]);
+  if (head) return head.split("/").pop();
+  const init = sh("git", ["config", "--get", "init.defaultBranch"]);
+  return init || "main";
+}
+
+function currentBranch() {
+  return sh("git", ["rev-parse", "--abbrev-ref", "HEAD"]);
+}
+
+function regexEscape(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function shellTokens(command) {
+  const tokens = [];
+  let token = "";
+  let quote = "";
+  let escaped = false;
+
+  const flush = () => {
+    if (token) tokens.push(token);
+    token = "";
+  };
+
+  for (const char of command) {
+    if (escaped) {
+      token += char;
+      escaped = false;
+    } else if (char === "\\" && quote !== "'") {
+      escaped = true;
+    } else if (quote) {
+      if (char === quote) quote = "";
+      else token += char;
+    } else if (char === "'" || char === '"') {
+      quote = char;
+    } else if (/\s/.test(char)) {
+      flush();
+    } else if (/[;&|()]/.test(char)) {
+      flush();
+      tokens.push(char);
+    } else {
+      token += char;
+    }
+  }
+
+  if (escaped) token += "\\";
+  flush();
+  return tokens;
+}
+
+function sequenceIndex(tokens, sequence) {
+  return tokens.findIndex((_, index) =>
+    sequence.every((value, offset) => tokens[index + offset] === value),
+  );
+}
+
+function commandSegment(tokens, start) {
+  const end = tokens.findIndex(
+    (token, index) => index > start && /[;&|()]/.test(token),
+  );
+  return tokens.slice(start, end < 0 ? undefined : end).join(" ");
+}
+
+function explicitlyTargetsProtectedBranch(command, protectedBranches) {
+  for (const branch of protectedBranches) {
+    if (!branch) continue;
+
+    const escaped = regexEscape(branch);
+    const direct = new RegExp(
+      `\\b(?:origin|upstream)\\s+(?:refs/heads/)?${escaped}(?=\\s|$)`,
+      "i",
+    );
+    const refspec = new RegExp(
+      `(?:^|\\s)[^\\s:]+:(?:refs/heads/)?${escaped}(?=\\s|$)`,
+      "i",
+    );
+    if (direct.test(command) || refspec.test(command)) {
+      return branch;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Returns a reason string when the command would land on a protected branch,
+ * or null when it's fine. Errs toward allowing: a false block is more annoying
+ * than a missed edge case, and destructive pushes are denied separately.
+ */
+function verdict(command) {
+  const tokens = shellTokens(command);
+  const protectedBranches = new Set([
+    "main",
+    "master",
+    "trunk",
+    "release",
+    defaultBranch(),
+  ]);
+
+  // Merging a PR always targets the base branch, which is usually trunk.
+  if (sequenceIndex(tokens, ["gh", "pr", "merge"]) >= 0) {
+    return "merges a pull request";
+  }
+
+  const pushIndex = sequenceIndex(tokens, ["git", "push"]);
+  const mergeIndex = sequenceIndex(tokens, ["git", "merge"]);
+  const isPush = pushIndex >= 0;
+  const isMerge = mergeIndex >= 0;
+  if (!isPush && !isMerge) return null;
+
+  const cmd = commandSegment(tokens, isPush ? pushIndex : mergeIndex);
+  if (isPush) {
+    const protectedTarget = explicitlyTargetsProtectedBranch(
+      cmd,
+      protectedBranches,
+    );
+    if (protectedTarget) return `targets ${protectedTarget}`;
+  }
+
+  // Or an implicit one: `git push` / `git merge x` while sitting on trunk.
+  const branch = currentBranch();
+  if (branch && protectedBranches.has(branch)) {
+    // A push to an explicitly different branch is fine even from trunk.
+    const otherTarget = cmd.match(/\bgit\s+push\s+\S+\s+(\S+)/);
+    if (isPush && otherTarget && !protectedBranches.has(otherTarget[1]))
+      return null;
+    return `runs on ${branch}`;
+  }
+
+  return null;
+}
+
+// ── entry ─────────────────────────────────────────
+
+let command = "";
+const testIdx = argv.indexOf("--test");
+if (testIdx >= 0) {
+  command = argv[testIdx + 1] || "";
+} else {
+  try {
+    const payload = JSON.parse(readFileSync(0, "utf8"));
+    const payloadCwd =
+      payload.cwd ??
+      payload.tool_input?.working_directory ??
+      payload.working_directory;
+    if (typeof payloadCwd === "string" && payloadCwd) gitCwd = payloadCwd;
+    command =
+      payload.tool_input?.command ??
+      payload.tool_input?.cmd ??
+      payload.input?.command ??
+      payload.command ??
+      "";
+    if (Array.isArray(command)) command = command.join(" ");
+  } catch {
+    process.exit(0); // unparseable payload is not grounds to block
+  }
+}
+
+if (!command) process.exit(0);
+
+const reason = verdict(command);
+if (!reason) process.exit(0);
+
+// Exit 2 is the blocking convention: the message goes back to the model so it
+// explains itself rather than silently retrying.
+process.stderr.write(
+  `Blocked: this command ${reason}. Pushing or merging to a protected ` +
+    `branch needs to be done by a human. Open a pull request instead, or ` +
+    `ask the user to run it themselves.\n`,
+);
+process.exit(2);

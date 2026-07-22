@@ -1,0 +1,97 @@
+#!/usr/bin/env node
+/**
+ * guard-shell-bomb — block self-replicating fork bombs.
+ *
+ * A permission rule can't catch this. Deny rules match command text literally,
+ * so they cover exactly one spelling of a bomb that has unlimited spellings —
+ * rename the function, add a space, and the rule is bypassed. This matches on
+ * structure instead: a routine that invokes itself, piped into itself, in the
+ * background.
+ *
+ * Scope is deliberately narrow. This stops a canonical bomb pasted from a blog
+ * or hallucinated verbatim; it does not stop someone who wants around it, and
+ * isn't trying to. Resource exhaustion has a thousand shapes and a matcher that
+ * chased them all would block ordinary work instead.
+ *
+ * Reads the hook payload as JSON on stdin; exits non-zero to block.
+ *
+ *   echo '{"tool_input":{"command":":(){:|:&};:"}}' | guard-shell-bomb
+ *   guard-shell-bomb --test ':(){:|:&};:'
+ */
+
+import { readFileSync } from "fs";
+
+const argv = process.argv.slice(2);
+
+// Whitespace is the only thing separating the textbook bomb from its thousand
+// cosmetic variants, so compare with it removed.
+function despace(command) {
+  return command.replace(/\s+/g, "");
+}
+
+// Quoted text is an argument, not code: `echo ':(){:|:&};:'` prints a bomb, it
+// doesn't run one. Blank those spans so discussing or grepping for a bomb isn't
+// treated as launching it. Deliberately quoting a bomb to slip past this works,
+// and is out of scope — see the header.
+function blankQuoted(command) {
+  return command.replace(/'[^']*'/g, "''").replace(/"[^"]*"/g, '""');
+}
+
+// name(){ ...name|name&... };name — the function calls itself on both sides of
+// a pipe, backgrounds it, and is then invoked. Any name, ":" being the classic.
+const SHELL_BOMB =
+  /([A-Za-z_:][A-Za-z0-9_:]*)\(\)\{[^}]*\1\|\1&[^}]*\};?\1(?![A-Za-z0-9_])/;
+
+// fork() with no exit condition, in the interpreters that expose it directly.
+const LOOPED_FORK = [
+  /while\(?(?:1|true)\)?[:{].*fork\(\)/i,
+  /for\(;;\).*fork\(\)/i,
+];
+
+function verdict(command) {
+  if (SHELL_BOMB.test(despace(blankQuoted(command)))) {
+    return "defines a function that recursively spawns itself in the background";
+  }
+  // Interpreter payloads live inside quotes by construction, so this one has to
+  // look through them: `perl -e 'while(1){fork()}'` is the whole bomb.
+  if (LOOPED_FORK.some((pattern) => pattern.test(despace(command)))) {
+    return "forks in an unbounded loop";
+  }
+
+  return null;
+}
+
+// ── entry ─────────────────────────────────────────
+
+let command = "";
+const testIdx = argv.indexOf("--test");
+if (testIdx >= 0) {
+  command = argv[testIdx + 1] || "";
+} else {
+  try {
+    const payload = JSON.parse(readFileSync(0, "utf8"));
+    command =
+      payload.tool_input?.command ??
+      payload.tool_input?.cmd ??
+      payload.input?.command ??
+      payload.command ??
+      "";
+    if (Array.isArray(command)) command = command.join(" ");
+  } catch {
+    process.exit(0); // unparseable payload is not grounds to block
+  }
+}
+
+if (!command) process.exit(0);
+
+const reason = verdict(command);
+if (!reason) process.exit(0);
+
+// Exit 2 is the blocking convention: the message goes back to the model so it
+// explains itself rather than silently retrying.
+process.stderr.write(
+  `Blocked: this command ${reason}, which would exhaust the process table ` +
+    `and require a reboot. If you genuinely need it, run it yourself in a ` +
+    `disposable VM.\n`,
+);
+process.exit(2);

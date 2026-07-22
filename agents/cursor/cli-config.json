@@ -15,9 +15,7 @@
   "rewind": true,
   "hasChangedDefaultModel": false,
   "permissions": {
-    "allow": [
-      "Shell(ls)"
-    ],
+    "allow": ["Shell(ls)"],
     "deny": [
       "Shell(brew cleanup)",
       "Shell(brew remove)",
@@ -54,7 +52,7 @@
     "useHttp1ForAgent": false
   },
   "attribution": {
-    "attributeCommitsToAgent": true,
-    "attributePRsToAgent": true
+    "attributeCommitsToAgent": false,
+    "attributePRsToAgent": false
   }
 }

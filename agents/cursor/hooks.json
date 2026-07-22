@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": "$HOME/.dotfiles/bin/guard-main",
+        "matcher": "\\bgit\\s+(push|merge)\\b|\\bgh\\s+pr\\s+merge\\b",
+        "timeout": 10,
+        "failClosed": true
+      }
+    ]
+  }
+}
