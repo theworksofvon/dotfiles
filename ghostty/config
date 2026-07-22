@@ -12,7 +12,8 @@ cursor-style = block
 mouse-hide-while-typing = true
 
 # ── scrollback and selection ──────────────────────
-scrollback-limit = 10000000     # ~10MB; agent sessions produce a lot of output
+# ~10MB; agent sessions produce a lot of output
+scrollback-limit = 10000000
 copy-on-select = clipboard
 window-save-state = always
 
