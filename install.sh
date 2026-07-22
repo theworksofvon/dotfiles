@@ -13,6 +13,7 @@ DRY_RUN=false
 [ "${1:-}" = "--dry-run" ] && DRY_RUN=true
 
 dim=$(tput dim 2>/dev/null || true); reset=$(tput sgr0 2>/dev/null || true)
+bold=$(tput bold 2>/dev/null || true)
 
 # link <path-in-repo> <target-in-home>
 link() {
@@ -43,6 +44,33 @@ link() {
   fi
   ln -sfn "$src" "$dst"
   echo "  + $pretty -> $1"
+}
+
+# link_live <path-in-repo> <target-in-home>
+#
+# Same as link, but for configs their tool rewrites as it runs. Tracking one of
+# those turns every plugin install or model change into repo churn carrying
+# absolute paths from whichever machine wrote it, so the live file is gitignored
+# and seeded from a tracked .example sibling instead.
+link_live() {
+  local live="$1" example="${1%.*}.example.${1##*.}"
+
+  if [ ! -e "$DOTFILES/$example" ]; then
+    echo "  ${bold}!${reset} $live needs $example to seed from" >&2
+    return 1
+  fi
+
+  # The mistake this helper exists to catch. Left tracked, the file looks fine
+  # until the tool rewrites it and the diff lands in an unrelated commit.
+  if git -C "$DOTFILES" rev-parse --is-inside-work-tree >/dev/null 2>&1 &&
+     ! git -C "$DOTFILES" check-ignore -q "$live"; then
+    echo "  ${bold}!${reset} $live is a live config but git still tracks it." >&2
+    echo "    Add it to .gitignore, then: git rm --cached $live" >&2
+    return 1
+  fi
+
+  [ -e "$DOTFILES/$live" ] || $DRY_RUN || cp "$DOTFILES/$example" "$DOTFILES/$live"
+  link "$live" "$2"
 }
 
 # Config files can't compute their own location, so they reference
@@ -81,33 +109,18 @@ echo "Agents"
 
 if [ -d "$HOME/.claude" ] || command -v claude >/dev/null 2>&1; then
   link agents/AGENTS.md          "$HOME/.claude/CLAUDE.md"
-  # Claude Code rewrites settings.json as it runs, so the live file is
-  # gitignored and seeded from the example rather than tracked.
-  if [ ! -e "$DOTFILES/agents/claude/settings.json" ] && ! $DRY_RUN; then
-    cp "$DOTFILES/agents/claude/settings.example.json" \
-       "$DOTFILES/agents/claude/settings.json"
-  fi
-  link agents/claude/settings.json "$HOME/.claude/settings.json"
+  link_live agents/claude/settings.json "$HOME/.claude/settings.json"
   link config/ccstatusline/settings.json "$HOME/.config/ccstatusline/settings.json"
-  # Account labels hold a personal org ID, so they're gitignored. Seed from the
-  # example; claude-account falls back to the email prefix if never filled in.
-  if [ ! -e "$DOTFILES/config/claude-account/accounts.json" ] && ! $DRY_RUN; then
-    cp "$DOTFILES/config/claude-account/accounts.example.json" \
-       "$DOTFILES/config/claude-account/accounts.json"
-  fi
-  link config/claude-account/accounts.json "$HOME/.config/claude-account/accounts.json"
+  # Account labels hold a personal org ID, so the live file stays out of git for
+  # privacy rather than churn; claude-account falls back to the email prefix.
+  link_live config/claude-account/accounts.json "$HOME/.config/claude-account/accounts.json"
 else
   echo "  ${dim}·${reset} Claude Code not installed, skipped"
 fi
 
 if [ -d "$HOME/.codex" ] || command -v codex >/dev/null 2>&1; then
   link agents/AGENTS.md "$HOME/.codex/AGENTS.md"
-  # Codex rewrites config.toml as it runs, so the live file is gitignored and
-  # seeded from the example rather than tracked (which would churn constantly).
-  if [ ! -e "$DOTFILES/agents/codex/config.toml" ] && ! $DRY_RUN; then
-    cp "$DOTFILES/agents/codex/config.example.toml" "$DOTFILES/agents/codex/config.toml"
-  fi
-  link agents/codex/config.toml "$HOME/.codex/config.toml"
+  link_live agents/codex/config.toml "$HOME/.codex/config.toml"
 else
   echo "  ${dim}·${reset} Codex not installed, skipped"
 fi
