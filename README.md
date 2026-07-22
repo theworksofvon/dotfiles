@@ -1,107 +1,87 @@
 # dotfiles
 
-macOS terminal setup: zsh, Starship, Ghostty, git, and Claude Code.
+macOS terminal: zsh, Starship, Ghostty, tmux, git, and coding agents.
 
 ## Install
 
 ```sh
 git clone https://github.com/theworksofvon/dotfiles.git ~/dotfiles
-cd ~/dotfiles && ./setup.sh
+cd ~/dotfiles && ./setup.sh     # --dry-run to preview, --no-install to link only
 ```
 
-Installs anything missing (Homebrew, starship, mise, jq, Ghostty, the Nerd Font,
-oh-my-zsh), then symlinks the configs. **Idempotent** — it checks before
-installing, so re-running is safe and only fills in gaps.
+Installs what's missing (Homebrew, starship, mise, jq, Ghostty, the Nerd Font,
+oh-my-zsh), then symlinks the configs. Re-running only fills gaps. Restart the
+terminal afterwards.
 
-```sh
-./setup.sh --dry-run      # show what would happen
-./setup.sh --no-install   # link configs only
-./install.sh              # link configs only (same thing, no prereq checks)
-```
+Clone anywhere: `install.sh` points `~/.dotfiles` at wherever this lives, and
+configs reference that. Git identity goes in `~/.gitconfig.local`, untracked.
 
-Restart your terminal when it finishes.
+**Skills are not in this repo.** `model-orchestrator` and `pr-reviewer` live in
+[agent-workflows](https://github.com/theworksofvon/agent-workflows); run
+`pnpm skills:install` there to link them into `~/.claude` and `~/.codex`.
 
-Clone anywhere — `install.sh` links `~/.dotfiles` to wherever it lives, and
-configs reference that. Your git identity goes in `~/.gitconfig.local`, which
-setup creates and never tracks, so a fork doesn't commit as me.
+## Commands
 
-## What you get
+|                                 |                                               |                               |
+| ------------------------------- | --------------------------------------------- | ----------------------------- |
+| `ai-usage`                      | every provider at once, one block each        | `--short` `--json`            |
+| `claude-usage`                  | limits, tokens, per-model breakdown           | `--short` `--json` `--prompt` |
+| `codex-usage`                   | quota and tokens from session logs            | `--short` `--json`            |
+| `opencode-usage`                | cost and tokens (only if installed)           | `--short` `--json`            |
+| `usage-alert`                   | notify past 80%, backgrounded at shell start  | `--short`                     |
+| `handoff`                       | move a conversation to another agent          | `--full` `--stdout` `--force` |
+| `agent-rules`                   | drop shared AGENTS.md into a project          |                               |
+| `git-pr`                        | PR number for the branch, for the status line |                               |
+| `prompt-style`                  | swap presets: `bridge` or `mission`           |                               |
+| `claude-personal` / `claude-cm` | swap Claude logins via Keychain               |                               |
 
-**Prompt** — Starship with a live Claude usage meter: `🟢8pm 🟢4d` means your
-5-hour block resets at 8pm and 4 days remain on the weekly window. The circle
-tracks burn rate, not raw usage — 🟢 spending slower than the clock, 🟡 slightly
-ahead, 🔴 on pace to run out early.
+## Prompt
 
-Two presets, swappable instantly:
-
-```sh
-prompt-style bridge     # horizontal console (default)
-prompt-style mission    # vertical checklist
-```
-
-**Claude Code** — notifications that only fire when you're _not_ looking at the
-terminal, and a hook that auto-formats every file Claude writes (ruff for
-Python, sqlfluff for SQL, prettier for web files). Missing formatters are
-skipped, not errors.
-
-**Git** — histogram diffs, `zdiff3` conflict markers, and rerere, which
-remembers how you resolved a conflict and replays it next time. Rebase
-autosquashes and autostashes; push sets upstream automatically.
-
-**tmux** — mainly for persistence: `C-b d` detaches, `tmux a` reattaches, and
-long-running work survives closing the terminal. Default `C-b` prefix so any
-cheatsheet applies. `C-b |` and `C-b -` split, `C-b hjkl` moves between panes,
-`y` in copy mode yanks to the system clipboard. Styled to match the prompt.
-
-**Shell** — oh-my-zsh with nvm, bun, and mise. Also a Claude account switcher
-(`claude-personal`, `claude-cm`) that swaps logins via the Keychain, since macOS
-only stores one set of credentials at a time.
-
-**Supply chain** — mise refuses any release less than 7 days old, long enough for
-a bad package to be caught upstream. Node projects want
-`minimum-release-age=10080` in `.npmrc` (pnpm 10.16+).
+The Claude meter reads `🟢8pm 🟢4d` — the 5-hour block resets at 8pm, 4 days
+remain on the weekly window. Colour tracks burn **rate**, not raw usage: 🟢
+spending slower than the clock, 🟡 slightly ahead, 🔴 on pace to run out early.
 
 ## Guardrails
 
-Claude, Codex, and Cursor are each restricted from writing outside the project
-without approval, and from destructive commands — recursive deletes, force
-pushes, history rewrites — plus reads of `.env`, SSH keys, and credentials.
-Pre-tool hooks also block agent pushes and merges to protected branches,
-including implicit `git push` commands issued while checked out on `main`.
+Claude, Codex, and Cursor are each blocked from writing outside the project
+without approval, from destructive commands (recursive deletes, force pushes,
+history rewrites), and from reading `.env`, SSH keys, and credentials. Pre-tool
+hooks block pushes and merges to protected branches, including an implicit
+`git push` issued while sitting on `main`.
 
 Claude uses `ask`/`deny` rules; Codex and Cursor use their sandboxes, which
-enforce it rather than prompting. opencode is supported but not covered.
+enforce rather than prompt. opencode is installed but not covered.
+
+## Things worth remembering
+
+- **Live configs** — Claude Code and Codex rewrite their own settings as they
+  run, so those files are gitignored and seeded from a `*.example.*` sibling.
+  `link_live` in `install.sh` fails the install if one is left tracked.
+- **Supply chain** — mise refuses any release under 7 days old, long enough for
+  a bad package to be caught upstream. Node projects want
+  `minimum-release-age=10080` in `.npmrc` (pnpm 10.16+).
+- **Claude hooks** — every file it writes gets formatted (ruff, sqlfluff,
+  prettier; missing ones skipped). Notifications fire only when the terminal
+  isn't focused.
+- **git** — rerere replays how you resolved a conflict last time. Histogram
+  diffs, `zdiff3` markers, rebase autosquash and autostash, push sets upstream.
+- **tmux** — `C-b |` and `C-b -` split, `C-b hjkl` moves, `y` yanks to the
+  system clipboard.
 
 ## Layout
 
 ```
 setup.sh     install prerequisites, then link
 install.sh   link only
-agents/      shared AGENTS.md + per-agent config (claude, codex,
-             cursor, opencode); each linked only if installed
-bin/         usage meters, notifier, status-line widgets
-zsh/ git/ tmux/ nvim/ starship/ ghostty/ mise/ claude/
+agents/      shared AGENTS.md + per-agent config; each linked only if installed
+bin/         usage meters, guards, notifier, status-line widgets
+test/        run any file directly; no runner
 ```
 
-Configs are symlinked, so editing a live file edits this repo. Commit and push;
-there's no copy-back step. Replaced files are backed up to `*.bak`.
-
-## Commands
-
-```sh
-ai-usage        every provider at once
-claude-usage    limits, token counts, per-model breakdown
-codex-usage     quota and tokens from Codex session logs
-opencode-usage  cost and tokens (optional; only if opencode is installed)
-usage-alert     notify past 80%; runs backgrounded at shell start
-handoff         move a conversation to another agent
-agent-rules     drop shared AGENTS.md into a project
-```
-
-Each takes `--short` and `--json`; `claude-usage` also takes `--prompt`.
+Configs are symlinked, so editing a live file edits this repo — commit and push,
+there is no copy-back step. Replaced files are backed up to `*.bak`.
 
 ## License
 
 MIT — see [LICENSE](LICENSE). The Claude Code approach here was inspired by
-[gsong/home-directory](https://github.com/gsong/home-directory), which is worth
-reading if you're building something similar.
+[gsong/home-directory](https://github.com/gsong/home-directory).
