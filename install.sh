@@ -81,6 +81,12 @@ echo "Agents"
 
 if [ -d "$HOME/.claude" ] || command -v claude >/dev/null 2>&1; then
   link agents/AGENTS.md          "$HOME/.claude/CLAUDE.md"
+  # Claude Code rewrites settings.json as it runs, so the live file is
+  # gitignored and seeded from the example rather than tracked.
+  if [ ! -e "$DOTFILES/agents/claude/settings.json" ] && ! $DRY_RUN; then
+    cp "$DOTFILES/agents/claude/settings.example.json" \
+       "$DOTFILES/agents/claude/settings.json"
+  fi
   link agents/claude/settings.json "$HOME/.claude/settings.json"
   link config/ccstatusline/settings.json "$HOME/.config/ccstatusline/settings.json"
   # Account labels hold a personal org ID, so they're gitignored. Seed from the

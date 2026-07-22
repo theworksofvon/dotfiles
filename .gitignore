@@ -18,5 +18,9 @@ config/claude-account/accounts.json
 # codex rewrites config.toml (marketplace timestamps, local runtime paths)
 agents/codex/config.toml
 
+# claude code rewrites settings.json (plugins, model, hooks installed by other
+# tools), and the paths it writes are absolute
+agents/claude/settings.json
+
 # personal git identity
 .gitconfig.local
