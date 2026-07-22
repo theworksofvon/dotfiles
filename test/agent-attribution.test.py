@@ -5,17 +5,25 @@ import tomllib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
-with (ROOT / "agents" / "claude" / "settings.json").open() as file:
-    claude = json.load(file)
-
-assert claude["attribution"] == {
-    "commit": "",
-    "pr": "",
-    "sessionUrl": False,
-}
+# The agents rewrite their live config as they run, so those files are
+# gitignored and only exist once install.sh has seeded them. The examples are
+# tracked, so a fresh clone still gets checked.
+for name in ("settings.json", "settings.example.json"):
+    path = ROOT / "agents" / "claude" / name
+    if not path.exists():
+        continue
+    with path.open() as file:
+        claude = json.load(file)
+    assert claude["attribution"] == {
+        "commit": "",
+        "pr": "",
+        "sessionUrl": False,
+    }, f"{path}: attribution is enabled"
 
 for name in ("config.toml", "config.example.toml"):
     path = ROOT / "agents" / "codex" / name
+    if not path.exists():
+        continue
     with path.open("rb") as file:
         codex = tomllib.load(file)
     assert codex["commit_attribution"] == "", f"{path}: attribution is enabled"
