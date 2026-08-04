@@ -277,8 +277,11 @@ claude-account-run() {
     return 1
   fi
   _claude_account_seed "$CLAUDE_ACCOUNTS_DIR/$name" || return 1
+  # Token auth reports no org or email, so the status line can't work out which
+  # account this is — pass the name it was launched under.
   CLAUDE_CONFIG_DIR="$CLAUDE_ACCOUNTS_DIR/$name" \
   CLAUDE_CODE_OAUTH_TOKEN="$token" \
+  CLAUDE_ACCOUNT_LABEL="$name" \
     command claude "$@"
 }
 

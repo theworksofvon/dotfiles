@@ -2,5 +2,9 @@
   "your-org-uuid-here": {
     "label": "personal",
     "color": "cyan"
+  },
+  "work": {
+    "label": "work",
+    "color": "magenta"
   }
 }

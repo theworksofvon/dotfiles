@@ -3,13 +3,16 @@
  * claude-account — which Claude account is currently active.
  *
  * Useful when juggling logins (see the claude-account-* helpers in zshrc):
- * the org name Anthropic returns is long and unhelpful, so map org IDs to
- * short labels in ~/.config/claude-account/accounts.json:
+ * the org name Anthropic returns is long and unhelpful, so map org IDs — or
+ * account names — to short labels in ~/.config/claude-account/accounts.json:
  *
  *   { "<org-uuid>": { "label": "personal", "color": "cyan" } }
+ *   { "cm":        { "label": "costmine", "color": "magenta" } }
  *
- * Falls back to the email prefix when an org isn't mapped. Cached 60s since
- * it's rendered in the status line.
+ * claude-account-run exports CLAUDE_ACCOUNT_LABEL, which wins outright: token
+ * auth reports no org or email, so a launched account can only be identified
+ * by the name it was launched under. Otherwise the org mapping is used, then
+ * the email prefix. Cached 60s since it's rendered in the status line.
  */
 
 import { execFileSync } from "child_process";
@@ -70,6 +73,22 @@ function authStatus() {
   }
 }
 
+let accounts = {};
+try {
+  accounts = JSON.parse(readFileSync(CONFIG, "utf8"));
+} catch {
+  /* unmapped is fine */
+}
+
+// A launched account knows its own name, so skip the auth call entirely.
+const named = process.env.CLAUDE_ACCOUNT_LABEL;
+if (named) {
+  const entry = accounts[named];
+  const code = COLORS[entry?.color] ?? COLORS.cyan;
+  process.stdout.write(`\x1b[${code}m${entry?.label || named}\x1b[0m`);
+  process.exit(0);
+}
+
 let status = cached();
 if (!status) {
   status = authStatus();
@@ -77,13 +96,6 @@ if (!status) {
 }
 
 if (!status?.loggedIn) process.exit(0);
-
-let accounts = {};
-try {
-  accounts = JSON.parse(readFileSync(CONFIG, "utf8"));
-} catch {
-  /* unmapped is fine */
-}
 
 const entry = accounts[status.orgId];
 const label = entry?.label || (status.email || "").split("@")[0] || "claude";
