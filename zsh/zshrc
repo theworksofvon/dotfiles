@@ -229,67 +229,80 @@ autoload -Uz compinit && compinit -C
 # <<< grok installer <<<
 
 # >>> claude account switcher >>>
-# macOS Keychain only holds one global "Claude Code-credentials" entry, so
-# CLAUDE_CONFIG_DIR alone isn't enough to run two logged-in accounts. These
-# helpers stash each account's credential under its own Keychain entry and
-# swap the active one (plus a per-account CLAUDE_CONFIG_DIR) before launching.
+# Two accounts can run side by side only if neither reads the global
+# "Claude Code-credentials" Keychain entry — a running session re-checks that
+# entry, so swapping it mid-flight hijacks whatever else is open. A
+# setup-token in CLAUDE_CODE_OAUTH_TOKEN outranks the Keychain and is scoped
+# to one process, so each terminal stays pinned to the account it started on.
 CLAUDE_ACCOUNTS_DIR="$HOME/.claude-accounts"
 
-_claude_kc_get() {
-  security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null
-}
-
-_claude_kc_set() {
-  security delete-generic-password -s "Claude Code-credentials" >/dev/null 2>&1
-  security add-generic-password -s "Claude Code-credentials" -a "$USER" -w "$1" -U >/dev/null
-}
-
+# Mint the token with `claude setup-token` while logged into the account,
+# then paste it here. The prompt is silent so the token stays out of history.
 claude-account-save() {
   local name="$1"
   if [[ -z "$name" ]]; then
     echo "usage: claude-account-save <name>"
+    echo "Run 'claude setup-token' while logged into that account first."
     return 1
   fi
-  local secret
-  secret=$(_claude_kc_get)
-  if [[ -z "$secret" ]]; then
-    echo "No active Claude Code credentials in Keychain. Run 'claude' and log in first."
+  local token
+  read -rs "token?Paste the setup-token for '$name': "
+  echo
+  if [[ "$token" != sk-ant-* ]]; then
+    echo "That doesn't look like a setup-token (expected an sk-ant-… value)."
     return 1
   fi
-  mkdir -p "$CLAUDE_ACCOUNTS_DIR"
-  security add-generic-password -s "Claude Code-credentials-$name" -a "$USER" -w "$secret" -U >/dev/null
-  echo "$name" > "$CLAUDE_ACCOUNTS_DIR/.active"
-  echo "Saved current Claude Code login as '$name'."
+  security add-generic-password -s "claude-code-oauth-$name" -a "$USER" -w "$token" -U >/dev/null || return 1
+  _claude_account_seed "$CLAUDE_ACCOUNTS_DIR/$name" || return 1
+  echo "Saved '$name'. Launch it with: claude-account-run $name"
 }
 
-_claude_account_use() {
+claude-account-run() {
   local name="$1"
-  local secret
-  secret=$(security find-generic-password -s "Claude Code-credentials-$name" -w 2>/dev/null)
-  if [[ -z "$secret" ]]; then
-    echo "No saved account named '$name' yet."
-    echo "Log into it with 'claude', then run: claude-account-save $name"
+  if [[ -z "$name" ]]; then
+    echo "usage: claude-account-run <name> [claude args...]"
     return 1
   fi
-  local current_name
-  current_name=$(cat "$CLAUDE_ACCOUNTS_DIR/.active" 2>/dev/null)
-  if [[ -n "$current_name" && "$current_name" != "$name" ]]; then
-    local current_secret
-    current_secret=$(_claude_kc_get)
-    [[ -n "$current_secret" ]] && security add-generic-password -s "Claude Code-credentials-$current_name" -a "$USER" -w "$current_secret" -U >/dev/null
+  shift
+  local token
+  token=$(security find-generic-password -s "claude-code-oauth-$name" -w 2>/dev/null)
+  if [[ -z "$token" ]]; then
+    echo "No token saved for '$name'."
+    echo "Run 'claude setup-token' while logged into it, then: claude-account-save $name"
+    return 1
   fi
-  _claude_kc_set "$secret"
-  echo "$name" > "$CLAUDE_ACCOUNTS_DIR/.active"
+  _claude_account_seed "$CLAUDE_ACCOUNTS_DIR/$name" || return 1
+  CLAUDE_CONFIG_DIR="$CLAUDE_ACCOUNTS_DIR/$name" \
+  CLAUDE_CODE_OAUTH_TOKEN="$token" \
+    command claude "$@"
 }
 
-claude-personal() {
-  _claude_account_use personal || return 1
-  CLAUDE_CONFIG_DIR="$CLAUDE_ACCOUNTS_DIR/personal" command claude "$@"
+# Reads the config dirs rather than the Keychain — `security dump-keychain`
+# raises an authorization dialog per item.
+claude-account-list() {
+  local names
+  # (N) so an empty accounts dir yields nothing instead of a "no matches" error.
+  names=("$CLAUDE_ACCOUNTS_DIR"/*(N/:t))
+  if (( ${#names} == 0 )); then
+    echo "No accounts saved yet. Run: claude-account-save <name>"
+    return 0
+  fi
+  print -l $names
 }
 
-claude-cm() {
-  _claude_account_use cm || return 1
-  CLAUDE_CONFIG_DIR="$CLAUDE_ACCOUNTS_DIR/cm" command claude "$@"
+claude-personal() { claude-account-run personal "$@" }
+claude-cm()       { claude-account-run cm "$@" }
+
+# A per-account CLAUDE_CONFIG_DIR starts empty, so the dotfiles-managed rules
+# and settings need the same links install.sh puts in ~/.claude.
+_claude_account_seed() {
+  local dir="$1"
+  mkdir -p "$dir" || return 1
+  [[ -e "$dir/CLAUDE.md" ]]     || ln -s "$HOME/.dotfiles/agents/AGENTS.md" "$dir/CLAUDE.md"
+  [[ -e "$dir/settings.json" ]] || ln -s "$HOME/.dotfiles/agents/claude/settings.json" "$dir/settings.json"
 }
 # <<< claude account switcher <<<
 
+
+# opencode
+export PATH=/Users/davontaejackson/.opencode/bin:$PATH

@@ -13,12 +13,20 @@
  */
 
 import { execFileSync } from "child_process";
+import { createHash } from "crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 
 const CONFIG = join(homedir(), ".config", "claude-account", "accounts.json");
-const CACHE = join(homedir(), ".cache", "claude-account", "status.json");
+const CACHE_DIR = join(homedir(), ".cache", "claude-account");
+// Accounts run concurrently in separate terminals, each with its own
+// CLAUDE_CONFIG_DIR, so a single cache file would leak one session's label
+// into the other's status line for up to a TTL.
+const CACHE = join(
+  CACHE_DIR,
+  `status-${createHash("sha256").update(process.env.CLAUDE_CONFIG_DIR || "default").digest("hex").slice(0, 12)}.json`,
+);
 const TTL_MS = 60 * 1000;
 
 const COLORS = {
@@ -38,7 +46,7 @@ function cached() {
 
 function store(status) {
   try {
-    mkdirSync(join(homedir(), ".cache", "claude-account"), { recursive: true });
+    mkdirSync(CACHE_DIR, { recursive: true });
     writeFileSync(CACHE, JSON.stringify({ timestamp: Date.now(), status }));
   } catch {
     /* cache is optional */
