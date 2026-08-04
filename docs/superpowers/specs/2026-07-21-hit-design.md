@@ -53,8 +53,11 @@ hit surface/user 42 abc123token        # path param 42 + token
 
 - `-e, --env <name>` — pick an environment (default: `default_env`)
 - `--curl` — dry-run: print the exact curl command, send nothing
-- `--fail` — exit nonzero (22) when the response status is ≥ 400
 - `--` — everything after is passed straight to `curl`
+
+A response status of 400+ exits non-zero by default (so a broken request never
+passes silently in a script); the body still prints. Use `hit ... || true` to
+ignore it — there is no `--fail`-style flag to remember.
 
 ## Disambiguation rules
 
@@ -165,8 +168,8 @@ so `--curl` output is as sensitive as the request itself.
 
 ### Exit codes
 
-- `0` — request completed (any status, unless `--fail`)
-- `22` — `--fail` and response status ≥ 400
+- `0` — request completed with status < 400
+- `22` — response status ≥ 400 (default; body still prints, `|| true` to ignore)
 - `2` — usage error (bad args, unknown route, unresolved variable)
 - otherwise — curl's own exit code on a transport error
 

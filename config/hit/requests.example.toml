@@ -1,0 +1,35 @@
+# hit config — copied to ~/.config/hit/requests.toml on install if you have none.
+# Never put secrets here. $VARS resolve from the active env profile, then your
+# shell environment, so tokens live in the shell (or a secret manager), not here.
+
+default_env = "local"
+
+[env.local]
+base = "http://localhost:3000"
+
+[env.prod]
+base = "https://api.example.com"
+
+# Top-level saved routes (no service). Value is "METHOD /path".
+[routes]
+health = "GET /health"
+users  = "GET /users"
+
+# A service groups routes, sets its own base, and can attach auth.
+[services.surface]
+base = "https://surface.example.com"
+auth = "surface"
+
+[services.surface.routes]
+users       = "GET /users"
+user        = "GET /users/{id}"
+create-user = "POST /users"
+
+# How to obtain a token. Use EITHER `command` OR `login`/`body`/`token`.
+[auth.surface]
+# command = "op read op://vault/surface/token"   # stdout is the token
+login = "POST /auth/login"
+body  = '{"key":"$SURFACE_KEY"}'                  # $SURFACE_KEY from the shell
+token = "data.access_token"                        # dotted path into the response
+# header = "Authorization: Bearer {token}"          # optional; this is the default
+# ttl    = "1h"                                      # optional proactive refresh

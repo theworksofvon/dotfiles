@@ -1,0 +1,548 @@
+#!/usr/bin/env node
+/**
+ * hit — make HTTP requests, ad-hoc or saved, on top of curl.
+ *
+ *   hit get /users                     ad-hoc: method + path (default base)
+ *   hit post /login '{"u":"ada"}'      ad-hoc + JSON body
+ *   hit users                          saved top-level route (knows its method)
+ *   hit surface/users                  saved route in a service
+ *   hit surface/user 42                path param {id} filled from a positional
+ *   hit get /me <token>                a bare trailing arg is a bearer token
+ *
+ * Trailing positionals are classified by shape, so nothing needs a flag:
+ * JSON-ish (or @file) is the body, anything else is a token, and leading
+ * non-JSON args fill a saved route's {placeholders} in order.
+ *
+ * Config lives at ~/.config/hit/requests.toml and never holds secrets — $VARS
+ * resolve from the active env profile then the shell. See the spec at
+ * docs/superpowers/specs/2026-07-21-hit-design.md.
+ */
+
+import { execFileSync } from "child_process";
+import { mkdirSync, readFileSync, writeFileSync, rmSync, existsSync } from "fs";
+import { homedir, tmpdir } from "os";
+import { join } from "path";
+import { pathToFileURL } from "url";
+
+const METHODS = new Set(["get", "post", "put", "patch", "delete", "head", "options"]);
+
+const CONFIG_PATH = join(
+  process.env.XDG_CONFIG_HOME || join(homedir(), ".config"),
+  "hit",
+  "requests.toml",
+);
+const CACHE_DIR = join(process.env.XDG_CACHE_HOME || join(homedir(), ".cache"), "hit");
+
+const die = (msg, code = 2) => {
+  process.stderr.write(`hit: ${msg}\n`);
+  process.exit(code);
+};
+
+// ── TOML (documented subset: tables, nested tables, basic/literal strings, ──
+// ── inline tables, booleans, integers, comments) ─────────────────────────────
+
+export function parseToml(text) {
+  const root = {};
+  let table = root;
+  for (let raw of text.split(/\r?\n/)) {
+    const line = stripComment(raw).trim();
+    if (!line) continue;
+    if (line[0] === "[") {
+      const m = line.match(/^\[([^\]]+)\]$/);
+      if (!m) throw new Error(`bad table header: ${line}`);
+      table = descend(root, splitKey(m[1]));
+    } else {
+      const eq = line.indexOf("=");
+      if (eq < 0) throw new Error(`expected key = value: ${line}`);
+      const path = splitKey(line.slice(0, eq).trim());
+      const val = parseValue(line.slice(eq + 1).trim());
+      const parent = descend(table, path.slice(0, -1));
+      parent[path[path.length - 1]] = val;
+    }
+  }
+  return root;
+}
+
+// Drop a trailing # comment, but not one inside a quoted string.
+function stripComment(line) {
+  let q = null;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (q) {
+      if (c === q) q = null;
+    } else if (c === '"' || c === "'") q = c;
+    else if (c === "#") return line.slice(0, i);
+  }
+  return line;
+}
+
+function splitKey(s) {
+  return s.split(".").map((k) => {
+    k = k.trim();
+    if ((k[0] === '"' && k.at(-1) === '"') || (k[0] === "'" && k.at(-1) === "'")) return k.slice(1, -1);
+    return k;
+  });
+}
+
+function descend(obj, path) {
+  for (const k of path) {
+    if (obj[k] == null) obj[k] = {};
+    obj = obj[k];
+  }
+  return obj;
+}
+
+function parseValue(s) {
+  if (s[0] === '"') return unescape(readQuoted(s, '"'));
+  if (s[0] === "'") return readQuoted(s, "'");
+  if (s[0] === "{") return parseInlineTable(s);
+  if (s === "true") return true;
+  if (s === "false") return false;
+  if (/^-?\d+$/.test(s)) return Number(s);
+  if (s[0] === "[") throw new Error("arrays are not supported in hit config");
+  throw new Error(`unsupported value: ${s}`);
+}
+
+function readQuoted(s, quote) {
+  let out = "";
+  for (let i = 1; i < s.length; i++) {
+    const c = s[i];
+    if (quote === '"' && c === "\\") {
+      out += c + s[++i];
+      continue;
+    }
+    if (c === quote) return out;
+    out += c;
+  }
+  throw new Error(`unterminated string: ${s}`);
+}
+
+function unescape(s) {
+  return s.replace(/\\(.)/g, (_, c) => ({ n: "\n", t: "\t", '"': '"', "\\": "\\" }[c] ?? c));
+}
+
+function parseInlineTable(s) {
+  const inner = s.slice(1, s.lastIndexOf("}")).trim();
+  const out = {};
+  if (!inner) return out;
+  for (const pair of splitTopLevel(inner)) {
+    const eq = pair.indexOf("=");
+    out[pair.slice(0, eq).trim()] = parseValue(pair.slice(eq + 1).trim());
+  }
+  return out;
+}
+
+// Split on commas that are not inside quotes.
+function splitTopLevel(s) {
+  const parts = [];
+  let q = null, start = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (q) {
+      if (c === q) q = null;
+    } else if (c === '"' || c === "'") q = c;
+    else if (c === ",") {
+      parts.push(s.slice(start, i));
+      start = i + 1;
+    }
+  }
+  parts.push(s.slice(start));
+  return parts.map((p) => p.trim());
+}
+
+// ── variables ────────────────────────────────────────────────────────────────
+
+// Substitute $VAR / ${VAR} from `vars` first, then the shell environment.
+// An unresolved variable is a hard error, never a silent empty string.
+export function resolveVars(str, vars = {}) {
+  if (typeof str !== "string") return str;
+  return str.replace(/\$\{(\w+)\}|\$(\w+)/g, (m, a, b) => {
+    const name = a || b;
+    const v = name in vars ? vars[name] : process.env[name];
+    if (v == null) die(`unresolved variable: $${name}`);
+    return v;
+  });
+}
+
+// Build the substitution context for an env profile: every profile key, with
+// its own $refs resolved from the shell (so `TOKEN = "$PROD_TOKEN"` works).
+function envVars(config, envName) {
+  const profile = config.env?.[envName] || {};
+  if (envName && !config.env?.[envName]) die(`unknown env: ${envName}`);
+  const vars = {};
+  for (const [k, v] of Object.entries(profile)) {
+    vars[k] = typeof v === "string" ? resolveVars(v, {}) : v;
+  }
+  return vars;
+}
+
+// ── request planning ─────────────────────────────────────────────────────────
+
+const isJsonish = (a) => /^\s*[[{]/.test(a) || a.startsWith("@");
+
+function splitRoute(spec) {
+  const sp = spec.indexOf(" ");
+  if (sp < 0) die(`bad route definition: "${spec}" (expected "METHOD /path")`);
+  return { method: spec.slice(0, sp).toUpperCase(), path: spec.slice(sp + 1).trim() };
+}
+
+// Turn the cleaned positional args into a request plan (before var resolution).
+export function planRequest(rest, config) {
+  if (!rest.length) die("nothing to do — try `hit --help` or `hit list`");
+  const first = rest[0];
+
+  let method, pathTemplate, base, authName, service;
+
+  if (METHODS.has(first.toLowerCase())) {
+    method = first.toUpperCase();
+    if (rest.length < 2) die(`${first} needs a url or path`);
+    pathTemplate = rest[1];
+    rest = rest.slice(2);
+    base = config.env?.[config._env]?.base || "";
+  } else {
+    // saved route: service/route, "service route", or a top-level route
+    let routeSpec, svcName, routeName;
+    if (first.includes("/")) {
+      [svcName, routeName] = first.split("/");
+      rest = rest.slice(1);
+    } else if (rest[1] && config.services?.[first]?.routes?.[rest[1]]) {
+      svcName = first;
+      routeName = rest[1];
+      rest = rest.slice(2);
+    } else {
+      routeName = first;
+      rest = rest.slice(1);
+    }
+    if (svcName) {
+      service = config.services?.[svcName];
+      if (!service) die(`unknown service: ${svcName}`);
+      routeSpec = service.routes?.[routeName];
+      if (!routeSpec) die(`unknown route: ${svcName}/${routeName}`);
+      base = service.base || config.env?.[config._env]?.base || "";
+      authName = service.auth || null;
+    } else {
+      routeSpec = config.routes?.[routeName];
+      if (!routeSpec) die(`unknown route: ${routeName} (see \`hit list\`)`);
+      base = config.env?.[config._env]?.base || "";
+    }
+    ({ method, path: pathTemplate } = splitRoute(routeSpec));
+  }
+
+  const placeholders = [...pathTemplate.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
+  const { params, body, token } = partition(rest, placeholders.length);
+  let path = pathTemplate;
+  placeholders.forEach((name, i) => {
+    path = path.replace(`{${name}}`, encodeURIComponent(params[i]));
+  });
+
+  const url = /^https?:\/\//.test(path) ? path : base + path;
+  if (!url) die("no base url — define [env.*].base or pass a full URL");
+  return { method, url, body, token, authName };
+}
+
+function partition(args, nParams) {
+  const rest = [...args];
+  const params = [];
+  while (params.length < nParams && rest.length && !isJsonish(rest[0])) params.push(rest.shift());
+  if (params.length < nParams) die(`missing path parameter(s): need ${nParams}, got ${params.length}`);
+  let body, token;
+  for (const a of rest) {
+    if (isJsonish(a)) {
+      if (body !== undefined) die("more than one body given");
+      body = a;
+    } else {
+      if (token !== undefined) die("more than one token given");
+      token = a;
+    }
+  }
+  return { params, body, token };
+}
+
+// ── auth ─────────────────────────────────────────────────────────────────────
+
+function tokenCacheFile(name) {
+  return join(CACHE_DIR, `${name}.token`);
+}
+
+function parseTtl(ttl) {
+  const m = String(ttl).match(/^(\d+)\s*([smhd])$/);
+  if (!m) return null;
+  const mult = { s: 1e3, m: 6e4, h: 36e5, d: 864e5 }[m[2]];
+  return Number(m[1]) * mult;
+}
+
+function readCachedToken(name, ttl) {
+  try {
+    const c = JSON.parse(readFileSync(tokenCacheFile(name), "utf8"));
+    if (ttl && Date.now() - c.timestamp > ttl) return null;
+    return c.token;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedToken(name, token) {
+  try {
+    mkdirSync(CACHE_DIR, { recursive: true });
+    writeFileSync(tokenCacheFile(name), JSON.stringify({ token, timestamp: Date.now() }), { mode: 0o600 });
+  } catch {
+    /* cache is best-effort */
+  }
+}
+
+// Obtain a token via the auth block's `command` or `login` request. Cached to
+// disk (mode 600); `refresh` forces a new one.
+export function obtainToken(config, name, { refresh = false } = {}) {
+  const auth = config.auth?.[name];
+  if (!auth) die(`unknown auth: ${name}`);
+  const ttl = auth.ttl ? parseTtl(auth.ttl) : null;
+  if (!refresh) {
+    const cached = readCachedToken(name, ttl);
+    if (cached) return cached;
+  }
+
+  let token;
+  if (auth.command) {
+    token = execFileSync("sh", ["-c", auth.command], { encoding: "utf8" }).trim();
+  } else if (auth.login) {
+    const vars = envVars(config, config._env);
+    const { method, path } = splitRoute(auth.login);
+    // login runs against the base of a service that references this auth, else env base
+    const svc = Object.values(config.services || {}).find((s) => s.auth === name);
+    const base = svc?.base || config.env?.[config._env]?.base || "";
+    const url = /^https?:\/\//.test(path) ? path : base + path;
+    const body = auth.body ? resolveVars(auth.body, vars) : null;
+    const args = ["-sS", "-X", method, url];
+    if (body) args.push("-H", "Content-Type: application/json", "--data-raw", body);
+    let out;
+    try {
+      out = execFileSync("curl", args, { encoding: "utf8" });
+    } catch (e) {
+      die(`login request failed: ${e.message}`);
+    }
+    let json;
+    try {
+      json = JSON.parse(out);
+    } catch {
+      die(`login response was not JSON:\n${out.slice(0, 200)}`);
+    }
+    token = dig(json, auth.token || "token");
+    if (token == null) die(`login response has no field "${auth.token || "token"}"`);
+  } else {
+    die(`auth "${name}" needs a command or login`);
+  }
+  writeCachedToken(name, token);
+  return token;
+}
+
+function dig(obj, dottedPath) {
+  return dottedPath.split(".").reduce((o, k) => (o == null ? o : o[k]), obj);
+}
+
+function authHeader(config, name, token) {
+  const tmpl = config.auth?.[name]?.header || "Authorization: Bearer {token}";
+  const idx = tmpl.indexOf(":");
+  return [tmpl.slice(0, idx).trim(), tmpl.slice(idx + 1).trim().replace("{token}", token)];
+}
+
+// ── curl ─────────────────────────────────────────────────────────────────────
+
+// The argv a user would type — this is exactly what `--curl` prints.
+export function buildCurlArgs({ method, url, headers = [], body }) {
+  const args = ["-sS", "-X", method];
+  for (const [k, v] of headers) args.push("-H", `${k}: ${v}`);
+  if (body != null) args.push("--data-raw", body);
+  args.push(url);
+  return args;
+}
+
+function shellQuote(s) {
+  return /^[A-Za-z0-9_@%+=:,./-]+$/.test(s) ? s : `'${s.replace(/'/g, "'\\''")}'`;
+}
+
+function printCurl(args, extra) {
+  const all = ["curl", ...args, ...extra].map(shellQuote);
+  const line = all.join(" ").replace(/ (-H|--data-raw) /g, " \\\n  $1 ");
+  process.stdout.write(line + "\n");
+}
+
+// Run curl, buffering the body so we can read the status (for 401 retry and the
+// summary line) and still choose raw-vs-jq output.
+function runCurl(args, extra) {
+  const bodyFile = join(tmpdir(), `hit-${process.pid}-${Date.now()}.body`);
+  const full = [...args, ...extra, "-o", bodyFile, "-w", "%{http_code}\t%{time_total}\t%{content_type}"];
+  let meta;
+  try {
+    meta = execFileSync("curl", full, { encoding: "utf8" });
+  } catch (e) {
+    try { rmSync(bodyFile, { force: true }); } catch {}
+    if (e.stderr) process.stderr.write(e.stderr);
+    process.exit(e.status || 1);
+  }
+  const [code, time, ctype] = meta.split("\t");
+  let body = "";
+  try { body = readFileSync(bodyFile); } catch {}
+  try { rmSync(bodyFile, { force: true }); } catch {}
+  return { code: Number(code), time: Number(time), ctype: ctype || "", body };
+}
+
+let jqChecked = false, jqOk = false;
+function haveJq() {
+  if (!jqChecked) {
+    jqChecked = true;
+    try {
+      execFileSync("jq", ["--version"], { stdio: "ignore" });
+      jqOk = true;
+    } catch {
+      jqOk = false;
+    }
+  }
+  return jqOk;
+}
+
+function emitBody(res) {
+  const wantsPretty = res.ctype.includes("json") && process.stdout.isTTY && haveJq();
+  if (wantsPretty) {
+    try {
+      const pretty = execFileSync("jq", ["."], { input: res.body, encoding: "buffer" });
+      process.stdout.write(pretty);
+      return;
+    } catch {
+      /* invalid JSON — fall through to raw */
+    }
+  }
+  process.stdout.write(res.body);
+}
+
+// ── subcommands ──────────────────────────────────────────────────────────────
+
+function cmdList(config) {
+  const envs = Object.keys(config.env || {});
+  const def = config.default_env;
+  process.stdout.write(
+    "Environments:  " + (envs.map((e) => (e === def ? `${e} (default)` : e)).join("  ") || "(none)") + "\n",
+  );
+  const routes = config.routes || {};
+  if (Object.keys(routes).length) {
+    process.stdout.write("Routes:\n");
+    for (const [name, spec] of Object.entries(routes)) process.stdout.write(`  ${name.padEnd(14)}${spec}\n`);
+  }
+  for (const [svc, def2] of Object.entries(config.services || {})) {
+    process.stdout.write(`Service ${svc}${def2.auth ? `  (auth: ${def2.auth})` : ""}:\n`);
+    for (const [name, spec] of Object.entries(def2.routes || {})) {
+      process.stdout.write(`  ${`${svc}/${name}`.padEnd(20)}${spec}\n`);
+    }
+  }
+}
+
+function cmdAuth(config, rest, flags) {
+  const name = rest[0];
+  if (!name) die("usage: hit auth <name> [--refresh|--clear]");
+  if (flags.clear) {
+    rmSync(tokenCacheFile(name), { force: true });
+    process.stdout.write(`cleared ${name}\n`);
+    return;
+  }
+  const token = obtainToken(config, name, { refresh: flags.refresh });
+  process.stdout.write(token + "\n");
+}
+
+const HELP = `hit — make HTTP requests, ad-hoc or saved, on top of curl
+
+Usage:
+  hit <method> <url|path> [body] [token]     ad-hoc request
+  hit <route> [params...] [body] [token]     saved top-level route
+  hit <service>/<route> [params...] ...      saved route in a service
+  hit list                                   show envs, services, routes
+  hit auth <name> [--refresh|--clear]        manage a cached token
+
+Trailing args are classified by shape: JSON-ish (or @file) is the body,
+anything else is a bearer token; leading non-JSON args fill {placeholders}.
+
+Flags:
+  -e, --env <name>   pick an environment (default: default_env)
+      --curl         print the exact curl command, send nothing
+      --             pass the rest straight to curl
+
+A response status of 400+ exits non-zero (so errors don't pass silently in
+scripts); the body still prints. Use \`hit ... || true\` to ignore it.
+
+Config: ~/.config/hit/requests.toml`;
+
+// ── main ─────────────────────────────────────────────────────────────────────
+
+export function parseFlags(argv) {
+  const flags = { env: null, curl: false, refresh: false, clear: false, help: false };
+  const rest = [];
+  let extra = [];
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === "--") { extra = argv.slice(i + 1); break; }
+    else if (a === "-e" || a === "--env") flags.env = argv[++i];
+    else if (a === "--curl") flags.curl = true;
+    else if (a === "--refresh") flags.refresh = true;
+    else if (a === "--clear") flags.clear = true;
+    else if (a === "-h" || a === "--help") flags.help = true;
+    else rest.push(a);
+  }
+  return { flags, rest, extra };
+}
+
+function loadConfig() {
+  if (!existsSync(CONFIG_PATH)) return {};
+  try {
+    return parseToml(readFileSync(CONFIG_PATH, "utf8"));
+  } catch (e) {
+    die(`config error in ${CONFIG_PATH}: ${e.message}`);
+  }
+}
+
+function main(argv) {
+  const { flags, rest, extra } = parseFlags(argv);
+  if (flags.help || rest[0] === "help") return void process.stdout.write(HELP + "\n");
+
+  const config = loadConfig();
+  config._env = flags.env || config.default_env || Object.keys(config.env || {})[0] || "";
+
+  if (rest[0] === "list") return cmdList(config);
+  if (rest[0] === "auth") return cmdAuth(config, rest.slice(1), flags);
+
+  const plan = planRequest(rest, config);
+  const vars = envVars(config, config._env);
+  const url = resolveVars(plan.url, vars);
+  const body = plan.body?.startsWith("@") ? readFileSync(plan.body.slice(1), "utf8") : resolveVars(plan.body, vars);
+
+  const headers = [];
+  if (body != null && isJsonish(body.trim())) headers.push(["Content-Type", "application/json"]);
+
+  // token: positional overrides configured auth
+  const attachToken = (token) => {
+    if (token) headers.push(authHeader(config, plan.authName || "_", token));
+  };
+  if (plan.token) headers.push(["Authorization", `Bearer ${plan.token}`]);
+  else if (plan.authName) attachToken(obtainToken(config, plan.authName));
+
+  const curlArgs = buildCurlArgs({ method: plan.method, url, headers, body });
+
+  if (flags.curl) return printCurl(curlArgs, extra);
+
+  let res = runCurl(curlArgs, extra);
+
+  // one automatic retry: refresh the token and try again on 401
+  if (res.code === 401 && plan.authName && !plan.token) {
+    const fresh = obtainToken(config, plan.authName, { refresh: true });
+    const retryHeaders = headers.filter(([k]) => k.toLowerCase() !== "authorization");
+    retryHeaders.push(authHeader(config, plan.authName, fresh));
+    res = runCurl(buildCurlArgs({ method: plan.method, url, headers: retryHeaders, body }), extra);
+  }
+
+  process.stderr.write(`${plan.method} ${url}  ${res.code}  ${Math.round(res.time * 1000)}ms\n`);
+  emitBody(res);
+
+  // Fail by default on an error status, so a broken request never looks fine in
+  // a script or chain. Body is already shown; use `|| true` to ignore.
+  if (res.code >= 400) process.exit(22);
+}
+
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMain) main(process.argv.slice(2));

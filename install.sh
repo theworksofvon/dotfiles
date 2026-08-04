@@ -101,6 +101,18 @@ echo "mise"       ; link mise/config.toml   "$HOME/.config/mise/config.toml"
 # gh's config.yml holds preferences and aliases only — credentials live in
 # hosts.yml, which is deliberately not tracked.
 echo "gh"         ; link config/gh/config.yml "$HOME/.config/gh/config.yml"
+# hit's config holds your own routes and may reference secret env-var names, so
+# it's seeded (copied, not linked) from the example and left for you to edit.
+echo "hit"
+if [ -e "$HOME/.config/hit/requests.toml" ]; then
+  echo "  ${dim}·${reset} ~/.config/hit/requests.toml exists, left as-is"
+elif $DRY_RUN; then
+  echo "  would create ~/.config/hit/requests.toml from the example"
+else
+  mkdir -p "$HOME/.config/hit"
+  cp "$DOTFILES/config/hit/requests.example.toml" "$HOME/.config/hit/requests.toml"
+  echo "  created ~/.config/hit/requests.toml — edit it for your APIs"
+fi
 # ── coding agents ─────────────────────────────────
 # Each agent is configured only if it's actually installed, so this works with
 # one of them, two, or all three. agents/AGENTS.md is the single source of

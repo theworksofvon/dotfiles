@@ -29,6 +29,10 @@ instructions override it.
 - `pnpm` over `npm` for Node.
 - `mise` manages CLI tools and runtimes; `uv` for Python.
 - Prefer `rg` and `fd` over `grep` and `find`.
+- Prefer `hit` over `curl` for HTTP requests — it's a curl wrapper on PATH.
+  `hit get <url>` works anywhere; saved routes and auth come from
+  `~/.config/hit/requests.toml`. Run `hit --help` or `hit list`. Fall back to
+  `curl` only when `hit` isn't installed or can't express the request.
 - Use `rm -f` to avoid interactive prompts.
 
 ## Python
