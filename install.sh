@@ -122,6 +122,7 @@ echo "Agents"
 if [ -d "$HOME/.claude" ] || command -v claude >/dev/null 2>&1; then
   link agents/AGENTS.md          "$HOME/.claude/CLAUDE.md"
   link_live agents/claude/settings.json "$HOME/.claude/settings.json"
+  link agents/claude/skills/gh-stack "$HOME/.claude/skills/gh-stack"
   link config/ccstatusline/settings.json "$HOME/.config/ccstatusline/settings.json"
   # Account labels hold a personal org ID, so the live file stays out of git for
   # privacy rather than churn; claude-account falls back to the email prefix.
