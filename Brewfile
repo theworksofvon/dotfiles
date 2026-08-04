@@ -20,6 +20,7 @@ brew "bat"                       # cat with syntax highlighting
 # ── development ───────────────────────────────────
 brew "git"
 brew "git-delta"                 # renders git diffs
+brew "git-lfs"                   # gitconfig registers its filter unconditionally
 brew "gh"                        # GitHub CLI; git-pr and auth depend on it
 brew "neovim"
 brew "clang-format"              # C++ formatting for the agent hook

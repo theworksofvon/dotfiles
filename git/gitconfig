@@ -77,3 +77,11 @@
 	st = status --short --branch
 	last = log -1 --stat
 	unstage = restore --staged
+
+# required = true makes every git command fail if git-lfs is missing, so it's
+# pinned in the Brewfile.
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
