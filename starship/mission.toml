@@ -25,7 +25,6 @@ $kubernetes\
 $aws\
 ${custom.claude}\
 ${custom.codex}\
-${custom.opencode}\
 $jobs\
 $cmd_duration\
 $status
@@ -130,7 +129,7 @@ format = "[$symbol$status](orange) | "
 [git_state]
 format = "[$state( $progress_current/$progress_total)](bold orange) "
 
-[custom.opencode]
-command = '"$HOME/.dotfiles/bin/opencode-usage" --short'
-when = 'test -n "$("$HOME/.dotfiles/bin/opencode-usage" --short 2>/dev/null)"'
-format = "[◆ $output](white) | "
+# opencode spend is deliberately absent from the prompt: opencode-usage shells
+# out to `opencode stats` and takes ~390ms, and starship's `when` test ran it a
+# second time, so the module cost ~775ms on every keypress. Run `ai-usage` for
+# the number instead.

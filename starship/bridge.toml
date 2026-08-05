@@ -28,7 +28,6 @@ $fill\
 $jobs\
 ${custom.claude}\
 ${custom.codex}\
-${custom.opencode}\
 $cmd_duration\
 $status
 [╰─](cyan)$character"""
@@ -101,13 +100,10 @@ command = '"$HOME/.dotfiles/bin/codex-usage" --short'
 when = 'test -d "$HOME/.codex/sessions"'
 format = "[ᗢ $output](orange)[ │](dim) "
 
-# opencode bills per token rather than against a quota, so this shows spend.
-# `when` requires non-empty output, otherwise a fresh install with no sessions
-# would render a bare symbol with nothing after it.
-[custom.opencode]
-command = '"$HOME/.dotfiles/bin/opencode-usage" --short'
-when = 'test -n "$("$HOME/.dotfiles/bin/opencode-usage" --short 2>/dev/null)"'
-format = "[◆ $output](white)[ │](dim) "
+# opencode spend is deliberately absent from the prompt: opencode-usage shells
+# out to `opencode stats` and takes ~390ms, and starship's `when` test ran it a
+# second time, so the module cost ~775ms on every keypress. Run `ai-usage` for
+# the number instead.
 
 
 [cmd_duration]
