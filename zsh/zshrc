@@ -252,55 +252,36 @@ export PATH="$HOME/.grok/bin:$PATH"
 # <<< grok installer <<<
 
 # >>> claude account switcher >>>
-# Two accounts can run side by side only if neither reads the global
-# "Claude Code-credentials" Keychain entry — a running session re-checks that
-# entry, so swapping it mid-flight hijacks whatever else is open. A
-# setup-token in CLAUDE_CODE_OAUTH_TOKEN outranks the Keychain and is scoped
-# to one process, so each terminal stays pinned to the account it started on.
+# Claude derives its Keychain service name from the config dir: unset it and the
+# entry is "Claude Code-credentials", set it and an 8-char sha256 of the path is
+# appended. So a CLAUDE_CONFIG_DIR per account isolates credentials, history and
+# settings on its own — no setup-token needed, and two accounts can run at once.
+#
+# The corollary is that the default login is only reachable with the variable
+# unset: pointing it at ~/.claude hashes to a key that was never written and
+# reports "not logged in". That's why the work account below is the bare dir
+# rather than a named one — it keeps the existing login and its project history.
 CLAUDE_ACCOUNTS_DIR="$HOME/.claude-accounts"
 
-# Mint the token with `claude setup-token` while logged into the account,
-# then paste it here. The prompt is silent so the token stays out of history.
-claude-account-save() {
-  local name="$1"
-  if [[ -z "$name" ]]; then
-    echo "usage: claude-account-save <name>"
-    echo "Run 'claude setup-token' while logged into that account first."
-    return 1
-  fi
-  local token
-  read -rs "token?Paste the setup-token for '$name': "
-  echo
-  if [[ "$token" != sk-ant-* ]]; then
-    echo "That doesn't look like a setup-token (expected an sk-ant-… value)."
-    return 1
-  fi
-  security add-generic-password -s "claude-code-oauth-$name" -a "$USER" -w "$token" -U >/dev/null || return 1
-  _claude_account_seed "$CLAUDE_ACCOUNTS_DIR/$name" || return 1
-  echo "Saved '$name'. Launch it with: claude-account-run $name"
-}
-
+# Log in once per account before first use:
+#   claude auth login                                        # work (default dir)
+#   CLAUDE_CONFIG_DIR=~/.claude-accounts/<name> claude auth login
 claude-account-run() {
   local name="$1"
   if [[ -z "$name" ]]; then
     echo "usage: claude-account-run <name> [claude args...]"
+    echo "accounts: $(claude-account-list | tr '\n' ' ')"
     return 1
   fi
   shift
-  local token
-  token=$(security find-generic-password -s "claude-code-oauth-$name" -w 2>/dev/null)
-  if [[ -z "$token" ]]; then
-    echo "No token saved for '$name'."
-    echo "Run 'claude setup-token' while logged into it, then: claude-account-save $name"
+  local dir="$CLAUDE_ACCOUNTS_DIR/$name"
+  _claude_account_seed "$dir" || return 1
+  if ! CLAUDE_CONFIG_DIR="$dir" command claude auth status 2>/dev/null | grep -q '"loggedIn": *true'; then
+    echo "'$name' isn't logged in yet. Run:"
+    echo "  CLAUDE_CONFIG_DIR=$dir claude auth login"
     return 1
   fi
-  _claude_account_seed "$CLAUDE_ACCOUNTS_DIR/$name" || return 1
-  # Token auth reports no org or email, so the status line can't work out which
-  # account this is — pass the name it was launched under.
-  CLAUDE_CONFIG_DIR="$CLAUDE_ACCOUNTS_DIR/$name" \
-  CLAUDE_CODE_OAUTH_TOKEN="$token" \
-  CLAUDE_ACCOUNT_LABEL="$name" \
-    command claude "$@"
+  CLAUDE_CONFIG_DIR="$dir" CLAUDE_ACCOUNT_LABEL="$name" command claude "$@"
 }
 
 # Reads the config dirs rather than the Keychain — `security dump-keychain`
@@ -310,14 +291,37 @@ claude-account-list() {
   # (N) so an empty accounts dir yields nothing instead of a "no matches" error.
   names=("$CLAUDE_ACCOUNTS_DIR"/*(N/:t))
   if (( ${#names} == 0 )); then
-    echo "No accounts saved yet. Run: claude-account-save <name>"
+    echo "No accounts yet. Create one with: claude-account-add <name>"
     return 0
   fi
   print -l $names
 }
 
+# Seeds the dir and hands off to Claude's own browser login.
+claude-account-add() {
+  local name="$1"
+  if [[ -z "$name" ]]; then
+    echo "usage: claude-account-add <name>"
+    return 1
+  fi
+  _claude_account_seed "$CLAUDE_ACCOUNTS_DIR/$name" || return 1
+  CLAUDE_CONFIG_DIR="$CLAUDE_ACCOUNTS_DIR/$name" command claude auth login || return 1
+  echo "Ready. Launch it with: claude-account-run $name"
+}
+
+# Which account is a given dir logged into? No argument = the default dir.
+claude-whoami() {
+  local dir="${1:+$CLAUDE_ACCOUNTS_DIR/$1}"
+  if [[ -n "$dir" ]]; then
+    CLAUDE_CONFIG_DIR="$dir" command claude auth status
+  else
+    command claude auth status
+  fi
+}
+
+# Work keeps the default config dir, so it must run with CLAUDE_CONFIG_DIR unset.
+claude-cm()       { command claude "$@" }
 claude-personal() { claude-account-run personal "$@" }
-claude-cm()       { claude-account-run cm "$@" }
 
 # A per-account CLAUDE_CONFIG_DIR starts empty, so the dotfiles-managed rules
 # and settings need the same links install.sh puts in ~/.claude.
