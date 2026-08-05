@@ -333,6 +333,50 @@ _claude_account_seed() {
 }
 # <<< claude account switcher <<<
 
+# >>> gh account routing >>>
+# git picks its account from the includeIf on ~/costmine, but gh keeps a single
+# globally active account and has no per-directory equivalent. So wrap it: in
+# the work tree, hand that one invocation the work account's token. `gh auth`
+# is passed straight through, otherwise GH_TOKEN would mask the real config and
+# make login, status and switch report the wrong thing.
+#
+# Falls back to the active account whenever the work one isn't logged in yet,
+# so this stays inert until `gh auth login --user djackson-costmine` has run.
+GH_WORK_USER="djackson-costmine"
+GH_PERSONAL_USER="theworksofvon"
+GH_WORK_TREE="$HOME/costmine"
+
+# Both sides name their account rather than leaning on whichever is active:
+# `gh auth login` makes the account it just added active, so a work login would
+# otherwise silently redirect every personal repo too.
+gh() {
+  [[ "$1" == auth ]] && { command gh "$@"; return $?; }
+  local want token
+  if [[ "$PWD/" == "$GH_WORK_TREE/"* ]]; then
+    want="$GH_WORK_USER"
+  else
+    want="$GH_PERSONAL_USER"
+  fi
+  token=$(command gh auth token --user "$want" 2>/dev/null)
+  if [[ -n "$token" ]]; then
+    GH_TOKEN="$token" command gh "$@"
+  else
+    command gh "$@"
+  fi
+}
+
+# Which account would gh use from here?
+gh-whoami() {
+  local who
+  who=$(gh api user --jq .login 2>/dev/null) || { echo "gh: not logged in"; return 1; }
+  if [[ "$PWD/" == "$GH_WORK_TREE/"* ]]; then
+    echo "$who (work tree)"
+  else
+    echo "$who (personal)"
+  fi
+}
+# <<< gh account routing <<<
+
 
 # opencode
 export PATH=/Users/davontaejackson/.opencode/bin:$PATH
