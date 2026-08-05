@@ -80,6 +80,10 @@ plugins=(git)
 # zsh-autosuggestions and zsh-syntax-highlighting come from Homebrew rather
 # than $ZSH_CUSTOM, so they're sourced below the oh-my-zsh init instead.
 
+# Completion dirs have to join fpath before oh-my-zsh runs compinit, otherwise
+# each one needs its own second compinit call (~8ms each).
+[ -d "$HOME/.grok/completions/zsh" ] && fpath=("$HOME/.grok/completions/zsh" $fpath)
+
 [ -s "$ZSH/oh-my-zsh.sh" ] && source "$ZSH/oh-my-zsh.sh"
 
 # User configuration
@@ -112,20 +116,33 @@ plugins=(git)
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 export PATH="$HOME/.dotfiles/bin:$HOME/.local/bin:$PATH"
 
+# Tool init snippets (brew shellenv, mise, starship, zoxide, fzf) each cost a
+# subprocess spawn — together about 100ms on every shell. Their output only
+# changes when the tool itself is upgraded, so cache it to disk and regenerate
+# when the binary is newer than the cache.
+#
+# _init_cache <name> <binary> <command...>
+_zsh_cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/zsh-init"
+[ -d "$_zsh_cache_dir" ] || mkdir -p "$_zsh_cache_dir"
+
+_init_cache() {
+  local name=$1 bin=$2
+  shift 2
+  local resolved cache="$_zsh_cache_dir/$name.zsh"
+  resolved=$(command -v "$bin") || return 0
+  if [[ ! -s $cache || $resolved -nt $cache ]]; then
+    "$@" >| "$cache" 2>/dev/null || { rm -f "$cache"; return 0; }
+  fi
+  source "$cache"
+}
+
 # Homebrew — prefix differs by platform (Apple Silicon / Intel / Linux).
 for _brew in /opt/homebrew/bin/brew /usr/local/bin/brew /home/linuxbrew/.linuxbrew/bin/brew; do
-  [ -x "$_brew" ] && eval "$("$_brew" shellenv)" && break
+  [ -x "$_brew" ] && _init_cache brew "$_brew" "$_brew" shellenv && break
 done
 unset _brew
 
-# nvm — only if installed via Homebrew.
-export NVM_DIR="$HOME/.nvm"
-if command -v brew >/dev/null 2>&1; then
-  _nvm="$(brew --prefix nvm 2>/dev/null || true)"
-  [ -s "$_nvm/nvm.sh" ] && . "$_nvm/nvm.sh"
-  [ -s "$_nvm/etc/bash_completion.d/nvm" ] && . "$_nvm/etc/bash_completion.d/nvm"
-  unset _nvm
-fi
+# Node comes from mise (activated below), not nvm.
 
 # bun completions
 [ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
@@ -142,13 +159,12 @@ if [ -n "${TMUX:-}" ] && [ -n "${GHOSTTY_RESOURCES_DIR:-}" ]; then
   unset _gi
 fi
 
-# mise — manages CLI tools (prettier, sqlfluff). Node stays with nvm above,
-# since mise's config declares no node/python runtime.
-command -v mise >/dev/null 2>&1 && eval "$(mise activate zsh)"
+# mise — manages CLI tools (prettier, sqlfluff) and the Node runtime.
+_init_cache mise mise mise activate zsh
 
 # Starship prompt (replaces the Oh My Zsh ZSH_THEME above).
 # Falls back to the oh-my-zsh theme if Starship isn't installed yet.
-command -v starship >/dev/null 2>&1 && eval "$(starship init zsh)"
+_init_cache starship starship starship init zsh
 
 # ── history ───────────────────────────────────────
 # oh-my-zsh sets HISTSIZE=50000 but SAVEHIST=10000, so 50k commands accumulate
@@ -179,11 +195,13 @@ command -v bat >/dev/null 2>&1 && alias cat='bat --paging=never'
 
 # zoxide learns the directories you visit: `z partial-name` jumps to the best
 # match. `cd` is left alone so muscle memory still works.
-command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init zsh)"
+_init_cache zoxide zoxide zoxide init zsh
 
 # fzf: Ctrl-R fuzzy history, Ctrl-T file picker, Alt-C directory jump.
 if command -v fzf >/dev/null 2>&1; then
-  source <(fzf --zsh) 2>/dev/null
+  # stderr silenced: fzf's widgets touch zle, which warns in shells that have
+  # no line editor (zsh -i -c, scripted sourcing).
+  _init_cache fzf fzf fzf --zsh 2>/dev/null
   export FZF_DEFAULT_OPTS="--height 40% --layout=reverse --border --info=inline"
   command -v fd >/dev/null 2>&1 && export FZF_DEFAULT_COMMAND='fd --type f --hidden --exclude .git'
 fi
@@ -228,9 +246,9 @@ prompt-style() {
 }
 
 # >>> grok installer >>>
+# The completions fpath entry moved above the oh-my-zsh init, which runs the
+# single compinit for the whole shell.
 export PATH="$HOME/.grok/bin:$PATH"
-fpath=(~/.grok/completions/zsh $fpath)
-autoload -Uz compinit && compinit -u -C
 # <<< grok installer <<<
 
 # >>> claude account switcher >>>

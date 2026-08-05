@@ -1,4 +1,8 @@
 [tools]
+# Node moved here from nvm — sourcing nvm.sh cost ~230ms on every shell,
+# and mise is already activated. Projects pinning a version in .nvmrc are
+# honoured via idiomatic_version_file_enable_tools below.
+node = "lts"
 "npm:@upstash/context7-mcp" = "latest"
 "npm:ccstatusline" = "latest"
 "npm:prettier" = "latest"
@@ -8,6 +12,9 @@
 # Refuse to install any release younger than 7 days, so a compromised
 # package is caught and yanked upstream before it can land here.
 minimum_release_age = "7d"
+# mise ignores .nvmrc by default. The frontend repos pin their Node version
+# there rather than in a mise config, so opt Node back in.
+idiomatic_version_file_enable_tools = ["node"]
 trusted_config_paths = [
   "/Users/davontaejackson/costmine",
   "/Users/davontaejackson/dev",
