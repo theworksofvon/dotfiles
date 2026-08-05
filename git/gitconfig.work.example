@@ -1,0 +1,11 @@
+# Copied to ~/.gitconfig.work by setup.sh, then never tracked.
+# Pulled in by the includeIf in gitconfig for repos under ~/costmine.
+[user]
+	name = Your Work Username
+	email = you@work.example
+
+# The work GitHub account has its own SSH key. IdentitiesOnly stops ssh
+# offering the personal key first — GitHub authenticates as whichever key
+# it accepts, so without this the wrong account answers.
+[core]
+	sshCommand = ssh -i ~/.ssh/id_ed25519_work -o IdentitiesOnly=yes
