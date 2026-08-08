@@ -1,0 +1,130 @@
+#!/usr/bin/env node
+/**
+ * guard-org-writes — block agent-initiated creation and writes on protected
+ * GitHub orgs.
+ *
+ * A permission rule can't catch this. The org name is an argument, not a
+ * command prefix, so a static matcher either misses `gh api -X POST
+ * repos/Org/...` or has to prompt on every gh call. This runs as a PreToolUse
+ * hook, so it can read the resolved command and MCP tool input first.
+ *
+ * Reads the hook payload as JSON on stdin; exits 2 to block. Reads are always
+ * allowed — only writes are gated.
+ *
+ *   echo '{"tool_input":{"command":"gh repo create Org/x"}}' | guard-org-writes
+ *   guard-org-writes --test 'gh api -X POST repos/GlacierRIG/x'
+ */
+
+import { execFileSync } from "child_process";
+import { readFileSync } from "fs";
+
+const PROTECTED_ORGS = ["GlacierRIG"];
+
+const argv = process.argv.slice(2);
+let gitCwd = process.cwd();
+
+// `git push` names no org — the org lives in the remote URL, so resolve it.
+function remoteUrls() {
+  try {
+    return execFileSync("git", ["remote", "-v"], {
+      cwd: gitCwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    return "";
+  }
+}
+
+function mentionsProtectedOrg(text) {
+  return PROTECTED_ORGS.find((org) =>
+    new RegExp(`\\b${org}\\b`, "i").test(text),
+  );
+}
+
+/**
+ * Write-ish shell operations. Deliberately narrow: `gh repo clone`, `gh repo
+ * view`, and plain `git fetch` all mention the org and must stay allowed.
+ */
+function shellWrite(command) {
+  const patterns = [
+    [/\bgh\s+repo\s+(create|delete|rename|transfer|archive|edit)\b/i, "changes a repository"],
+    [/\bgh\s+api\s+[^|;&]*(-X|--method)\s+(POST|PATCH|PUT|DELETE)\b/i, "sends a write request to the API"],
+    [/\bgh\s+(secret|variable|release|workflow|ruleset|label)\s+(set|create|delete|edit|run)\b/i, "changes org or repo settings"],
+    [/\bgh\s+pr\s+(create|merge|close|edit)\b/i, "changes a pull request"],
+    [/\bgh\s+issue\s+(create|close|edit|delete)\b/i, "changes an issue"],
+    [/\bgit\s+push\b/i, "pushes commits"],
+  ];
+  for (const [pattern, reason] of patterns) {
+    if (pattern.test(command)) return reason;
+  }
+  return null;
+}
+
+/** MCP GitHub tools whose names imply a write. */
+function mcpWrite(toolName) {
+  if (!/github/i.test(toolName)) return null;
+  if (
+    /(create|update|delete|push|merge|write|add|fork|submit|transfer|rename)/i.test(
+      toolName,
+    )
+  ) {
+    return "calls a GitHub write tool";
+  }
+  return null;
+}
+
+// ── entry ─────────────────────────────────────────
+
+let command = "";
+let toolName = "";
+let haystack = "";
+
+const testIdx = argv.indexOf("--test");
+if (testIdx >= 0) {
+  command = argv[testIdx + 1] || "";
+  haystack = command;
+} else {
+  try {
+    const payload = JSON.parse(readFileSync(0, "utf8"));
+    toolName = payload.tool_name ?? "";
+    const payloadCwd =
+      payload.cwd ??
+      payload.tool_input?.working_directory ??
+      payload.working_directory;
+    if (typeof payloadCwd === "string" && payloadCwd) gitCwd = payloadCwd;
+    command =
+      payload.tool_input?.command ??
+      payload.tool_input?.cmd ??
+      payload.input?.command ??
+      payload.command ??
+      "";
+    if (Array.isArray(command)) command = command.join(" ");
+    // MCP calls carry the org in structured fields, not a command string.
+    haystack = command || JSON.stringify(payload.tool_input ?? {});
+  } catch {
+    process.exit(0); // unparseable payload is not grounds to block
+  }
+}
+
+if (!haystack) process.exit(0);
+
+// A bare `git push` carries no org text; fall back to the configured remotes.
+if (/\bgit\s+push\b/i.test(command) && !mentionsProtectedOrg(haystack)) {
+  haystack += " " + remoteUrls();
+}
+
+const org = mentionsProtectedOrg(haystack);
+if (!org) process.exit(0);
+
+const reason = command ? shellWrite(command) : mcpWrite(toolName);
+if (!reason) process.exit(0);
+
+// Exit 2 is the blocking convention: the message goes back to the model so it
+// explains itself rather than silently retrying.
+process.stderr.write(
+  `Blocked: this command ${reason} on the ${org} org. Creating or changing ` +
+    `anything under ${org} needs explicit approval from the user first. Ask ` +
+    `them to confirm, or to run it themselves.\n`,
+);
+process.exit(2);

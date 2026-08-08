@@ -92,9 +92,22 @@
           {
             "command": "\"$HOME/.dotfiles/bin/guard-shell-bomb\"",
             "type": "command"
+          },
+          {
+            "command": "\"$HOME/.dotfiles/bin/guard-org-writes\"",
+            "type": "command"
           }
         ],
         "matcher": "Bash"
+      },
+      {
+        "hooks": [
+          {
+            "command": "\"$HOME/.dotfiles/bin/guard-org-writes\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "mcp__.*[Gg]ithub.*"
       },
       {
         "hooks": [
