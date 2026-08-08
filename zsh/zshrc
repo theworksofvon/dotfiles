@@ -114,7 +114,9 @@ plugins=(git)
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
-export PATH="$HOME/.dotfiles/bin:$HOME/.local/bin:$PATH"
+# PATH for ~/.dotfiles/bin is set after the tool inits below, not here — brew
+# shellenv and mise both prepend, so anything exported at this point loses to
+# them. bin/gh has to win over the Homebrew gh to do its routing.
 
 # Tool init snippets (brew shellenv, mise, starship, zoxide, fzf) each cost a
 # subprocess spawn — together about 100ms on every shell. Their output only
@@ -151,8 +153,13 @@ unset _brew
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
-# mise — manages CLI tools (prettier, sqlfluff) and the Node runtime.
+# mise — manages CLI tools (prettier, sqlfluff, cswap) and the Node runtime.
 _init_cache mise mise mise activate zsh
+
+# Last of the PATH prepends, so the shims here outrank the tools they wrap —
+# bin/gh has to shadow the Homebrew gh. Nothing else in bin/ collides with a
+# brew or mise binary, so winning outright costs nothing.
+export PATH="$HOME/.dotfiles/bin:$HOME/.local/bin:$PATH"
 
 # Starship prompt (replaces the Oh My Zsh ZSH_THEME above).
 # Falls back to the oh-my-zsh theme if Starship isn't installed yet.
@@ -254,50 +261,21 @@ prompt-style() {
 export PATH="$HOME/.grok/bin:$PATH"
 # <<< grok installer <<<
 
-# >>> gh account routing >>>
-# git picks its account from the includeIf on ~/costmine, but gh keeps a single
-# globally active account and has no per-directory equivalent. So wrap it: in
-# the work tree, hand that one invocation the work account's token. `gh auth`
-# is passed straight through, otherwise GH_TOKEN would mask the real config and
-# make login, status and switch report the wrong thing.
+# gh routing lives in ~/.dotfiles/bin/gh, not a function here — a function only
+# applies inside interactive zsh, so scripts and other processes bypassed it.
+
+# Claude account by directory, the same rule git and gh follow: work under
+# ~/costmine, personal everywhere else. cswap gives each account its own
+# CLAUDE_CONFIG_DIR — which Claude hashes into its Keychain service name — so
+# they stay isolated and can run side by side without swapping any shared login.
 #
-# Falls back to the active account whenever the work one isn't logged in yet,
-# so this stays inert until `gh auth login --user djackson-costmine` has run.
-GH_WORK_USER="djackson-costmine"
-GH_PERSONAL_USER="theworksofvon"
-GH_WORK_TREE="$HOME/costmine"
-
-# Both sides name their account rather than leaning on whichever is active:
-# `gh auth login` makes the account it just added active, so a work login would
-# otherwise silently redirect every personal repo too.
-gh() {
-  [[ "$1" == auth ]] && { command gh "$@"; return $?; }
-  local want token
-  if [[ "$PWD/" == "$GH_WORK_TREE/"* ]]; then
-    want="$GH_WORK_USER"
-  else
-    want="$GH_PERSONAL_USER"
-  fi
-  token=$(command gh auth token --user "$want" 2>/dev/null)
-  if [[ -n "$token" ]]; then
-    GH_TOKEN="$token" command gh "$@"
-  else
-    command gh "$@"
-  fi
-}
-
-# Which account would gh use from here?
-gh-whoami() {
-  local who
-  who=$(gh api user --jq .login 2>/dev/null) || { echo "gh: not logged in"; return 1; }
-  if [[ "$PWD/" == "$GH_WORK_TREE/"* ]]; then
-    echo "$who (work tree)"
-  else
-    echo "$who (personal)"
-  fi
-}
-# <<< gh account routing <<<
-
+# Not a `claude` wrapper: Claude Code re-execs itself for subagents and hooks,
+# and putting a launcher in that path would route them through cswap too.
+#   cc            → the account mapped to this directory
+#   cc 2          → a specific account, this terminal only
+#   cswap map     → show the directory mappings
+#   cswap list    → accounts with live usage
+cc() { cswap run "$@" }
 
 # opencode
 export PATH=/Users/davontaejackson/.opencode/bin:$PATH

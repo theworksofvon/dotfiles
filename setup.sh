@@ -123,7 +123,7 @@ fi
 
 # ── mise-managed tools ────────────────────────────
 # Runs after linking, since mise reads the config we just symlinked.
-step "mise tools (prettier, sqlfluff)"
+step "mise tools (prettier, sqlfluff, cswap)"
 if have mise; then
   run mise install
   $DRY_RUN || ok "installed per mise/config.toml"
@@ -184,7 +184,7 @@ else
 
   Restart your terminal, then verify:
     starship prompt          # should show the Claude usage meter
-    mise ls                  # prettier, sqlfluff, ruff
+    mise ls                  # prettier, sqlfluff, ruff, cswap
     prompt-style mission     # switch prompts
 
   Anything already present was left alone — re-run this script any time.

@@ -1,15 +1,17 @@
 ---
 name: Identity — who am I in this directory?
 command: |
-  echo "git:  $(git config user.name) <$(git config user.email)>"
-  echo "ssh:  $(git config core.sshCommand || echo 'default key')"
-  echo "gh:   $(gh-whoami)"
+  echo "git:    $(git config user.name) <$(git config user.email)>"
+  echo "ssh:    $(git config core.sshCommand || echo 'default key')"
+  echo "gh:     $(gh-whoami)"
+  echo "claude: $(claude-whoami)"
 description: >
-  git and gh both pick their account from the current directory, so the answer
-  changes as you move around. Run this when you're unsure which account a push
-  or a PR would land under.
+  git, gh and claude all pick their account from the current directory, so the
+  answer changes as you move around. Run this when you're unsure which account
+  a push, a PR, or a session would land under.
 tags:
   - git
   - gh
+  - claude
 shells:
   - zsh

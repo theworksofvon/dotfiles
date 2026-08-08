@@ -1,0 +1,62 @@
+#!/bin/sh
+# gh — route each invocation to the GitHub account that owns the directory.
+#
+# git picks its account from the includeIf on ~/costmine, but gh keeps a single
+# globally active account and has no per-directory equivalent. So wrap it: in
+# the work tree, hand that one invocation the work account's token.
+#
+# A shim rather than a shell function, because the function only existed inside
+# interactive zsh — a Makefile, a git alias, an MCP server or any other process
+# that execs gh directly got the active account, which is work, even in personal
+# repos. This is on PATH, so every caller gets the same routing.
+#
+# Both sides name their account rather than leaning on whichever is active:
+# `gh auth login` makes the account it just added active, so a work login would
+# otherwise silently redirect every personal repo too. Falls back to the active
+# account whenever the wanted one isn't logged in, so this stays inert until
+# `gh auth login --user <name>` has run.
+
+GH_WORK_USER="djackson-costmine"
+GH_PERSONAL_USER="theworksofvon"
+GH_WORK_TREE="$HOME/costmine"
+
+# Resolve the real binary by re-scanning PATH with this shim's own directory
+# removed — hardcoding /opt/homebrew/bin/gh would break on a different prefix.
+self_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+real_gh=""
+saved_ifs=$IFS
+IFS=:
+for dir in $PATH; do
+  [ -n "$dir" ] || dir=.
+  case $(CDPATH= cd -- "$dir" 2>/dev/null && pwd -P) in
+    "$self_dir") continue ;;
+  esac
+  if [ -x "$dir/gh" ]; then
+    real_gh="$dir/gh"
+    break
+  fi
+done
+IFS=$saved_ifs
+
+if [ -z "$real_gh" ]; then
+  echo "gh: not installed" >&2
+  exit 127
+fi
+
+# `gh auth` is passed straight through, otherwise GH_TOKEN would mask the real
+# config and make login, status and switch report the wrong thing.
+if [ "$1" = "auth" ]; then
+  exec "$real_gh" "$@"
+fi
+
+case "$PWD/" in
+  "$GH_WORK_TREE"/*) want="$GH_WORK_USER" ;;
+  *) want="$GH_PERSONAL_USER" ;;
+esac
+
+token=$("$real_gh" auth token --user "$want" 2>/dev/null)
+if [ -n "$token" ]; then
+  GH_TOKEN="$token" exec "$real_gh" "$@"
+fi
+
+exec "$real_gh" "$@"

@@ -1,0 +1,25 @@
+#!/bin/sh
+# claude-whoami — which Claude account would `cc` launch from here?
+#
+# cswap resolves a directory to an account by nearest mapped ancestor, so the
+# answer depends on where you're standing. Reads mappings.json rather than
+# parsing `cswap map` output, which is formatted for people, not for scripts.
+
+MAPPINGS="$HOME/.claude-swap-backup/mappings.json"
+
+if [ ! -f "$MAPPINGS" ]; then
+  echo "cswap: no directory mappings yet" >&2
+  exit 1
+fi
+
+jq -r --arg pwd "$PWD" '
+  .mappings
+  | to_entries
+  # The root mapping is the catch-all, and "/" + "/" would match nothing.
+  | map(select(.key as $dir
+      | ($dir | if . == "/" then . else . + "/" end) as $prefix
+      | $pwd == $dir or ($pwd | startswith($prefix))))
+  | sort_by(.key | length)
+  | last
+  | if . then .value.email else "default login" end
+' "$MAPPINGS"

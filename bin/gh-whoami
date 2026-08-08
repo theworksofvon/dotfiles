@@ -1,0 +1,17 @@
+#!/bin/sh
+# gh-whoami — which GitHub account would gh use from here?
+#
+# The answer changes with the directory (see the gh shim next to this file), so
+# it's worth asking before a push or a PR lands under the wrong account.
+
+GH_WORK_TREE="$HOME/costmine"
+
+who=$(gh api user --jq .login 2>/dev/null) || {
+  echo "gh: not logged in" >&2
+  exit 1
+}
+
+case "$PWD/" in
+  "$GH_WORK_TREE"/*) echo "$who (work tree)" ;;
+  *) echo "$who (personal)" ;;
+esac

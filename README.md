@@ -33,6 +33,37 @@ configs reference that. Git identity goes in `~/.gitconfig.local`, untracked.
 | `agent-rules`    | drop shared AGENTS.md into a project          |                               |
 | `git-pr`         | PR number for the branch, for the status line |                               |
 | `prompt-style`   | swap presets: `bridge` or `mission`           |                               |
+| `cc`             | Claude as this directory's account            | `cc 2` for a specific one     |
+| `gh-whoami`      | which GitHub account gh would use from here   |                               |
+| `claude-whoami`  | which Claude account `cc` would launch here   |                               |
+
+## Accounts
+
+Work and personal are two separate logins on every tool, and all three pick the
+same way — by directory. Under `~/costmine` you are work; everywhere else you
+are personal. Nothing to switch, and nothing to remember before a push.
+
+| tool     | mechanism                                                           |
+| -------- | ------------------------------------------------------------------- |
+| `git`    | `includeIf "gitdir:~/costmine/"` → `~/.gitconfig.work`, own SSH key |
+| `gh`     | `bin/gh` picks the matching account's token per invocation          |
+| `claude` | `cswap` gives each account its own `CLAUDE_CONFIG_DIR`              |
+
+`bin/gh` is a shim on PATH rather than a shell function, so a Makefile, a git
+alias, or an MCP server gets the same routing an interactive shell does. It has
+to outrank the Homebrew `gh`, which is why `~/.dotfiles/bin` is prepended last
+in `zshrc` — after brew and mise have had their turn.
+
+Claude keeps one login per machine, so accounts move via
+[claude-swap](https://github.com/realiti4/claude-swap) (`cswap`, installed by
+mise). It hands each account its own config dir, which is what Claude hashes
+into its Keychain service name — so the logins are genuinely separate and two
+accounts can run at once instead of taking turns on a shared entry. `cswap map`
+holds the directory rules, `cswap list` shows live usage per account. Run
+`cc` and you get whichever account owns the directory you're standing in.
+
+One-time setup on a new machine: `gh auth login --user <name>` for each GitHub
+account, then `cswap add` while logged into each Claude account.
 
 ## Prompt
 
@@ -73,7 +104,7 @@ enforce rather than prompt. opencode is installed but not covered.
 setup.sh     install prerequisites, then link
 install.sh   link only
 agents/      shared AGENTS.md + per-agent config; each linked only if installed
-bin/         usage meters, guards, notifier, status-line widgets
+bin/         usage meters, guards, notifier, status-line widgets, gh routing
 test/        run any file directly; no runner
 ```
 
