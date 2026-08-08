@@ -1,6 +1,6 @@
 # dotfiles
 
-macOS terminal: zsh, Starship, Ghostty, tmux, git, and coding agents.
+macOS terminal: zsh, Starship, Warp, tmux, git, and coding agents.
 
 ## Install
 
@@ -9,7 +9,7 @@ git clone https://github.com/theworksofvon/dotfiles.git ~/dotfiles
 cd ~/dotfiles && ./setup.sh     # --dry-run to preview, --no-install to link only
 ```
 
-Installs what's missing (Homebrew, starship, mise, jq, Ghostty, the Nerd Font,
+Installs what's missing (Homebrew, starship, mise, jq, Warp, the Nerd Font,
 oh-my-zsh), then symlinks the configs. Re-running only fills gaps. Restart the
 terminal afterwards.
 
@@ -22,18 +22,17 @@ configs reference that. Git identity goes in `~/.gitconfig.local`, untracked.
 
 ## Commands
 
-|                                 |                                               |                               |
-| ------------------------------- | --------------------------------------------- | ----------------------------- |
-| `ai-usage`                      | every provider at once, one block each        | `--short` `--json`            |
-| `claude-usage`                  | limits, tokens, per-model breakdown           | `--short` `--json` `--prompt` |
-| `codex-usage`                   | quota and tokens from session logs            | `--short` `--json`            |
-| `opencode-usage`                | cost and tokens (only if installed)           | `--short` `--json`            |
-| `usage-alert`                   | notify past 80%, backgrounded at shell start  | `--short`                     |
-| `handoff`                       | move a conversation to another agent          | `--full` `--stdout` `--force` |
-| `agent-rules`                   | drop shared AGENTS.md into a project          |                               |
-| `git-pr`                        | PR number for the branch, for the status line |                               |
-| `prompt-style`                  | swap presets: `bridge` or `mission`           |                               |
-| `claude-personal` / `claude-cm` | swap Claude logins via Keychain               |                               |
+|                  |                                               |                               |
+| ---------------- | --------------------------------------------- | ----------------------------- |
+| `ai-usage`       | every provider at once, one block each        | `--short` `--json`            |
+| `claude-usage`   | limits, tokens, per-model breakdown           | `--short` `--json` `--prompt` |
+| `codex-usage`    | quota and tokens from session logs            | `--short` `--json`            |
+| `opencode-usage` | cost and tokens (only if installed)           | `--short` `--json`            |
+| `usage-alert`    | notify past 80%, backgrounded at shell start  | `--short`                     |
+| `handoff`        | move a conversation to another agent          | `--full` `--stdout` `--force` |
+| `agent-rules`    | drop shared AGENTS.md into a project          |                               |
+| `git-pr`         | PR number for the branch, for the status line |                               |
+| `prompt-style`   | swap presets: `bridge` or `mission`           |                               |
 
 ## Prompt
 

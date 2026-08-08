@@ -24,3 +24,10 @@ agents/claude/settings.json
 
 # personal git identity
 .gitconfig.local
+
+# warp rewrites settings.toml on every settings change (see settings.example.toml)
+warp/settings.toml
+
+# a launch config names the repos you work on, and this repo is public
+warp/launch_configurations/*.yaml
+!warp/launch_configurations/*.example.yaml

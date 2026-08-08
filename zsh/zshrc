@@ -151,14 +151,6 @@ unset _brew
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
-# Ghostty injects its shell integration automatically, but that injection
-# doesn't survive into tmux — re-source it manually there.
-if [ -n "${TMUX:-}" ] && [ -n "${GHOSTTY_RESOURCES_DIR:-}" ]; then
-  _gi="$GHOSTTY_RESOURCES_DIR/shell-integration/zsh/ghostty-integration"
-  [ -s "$_gi" ] && source "$_gi"
-  unset _gi
-fi
-
 # mise — manages CLI tools (prettier, sqlfluff) and the Node runtime.
 _init_cache mise mise mise activate zsh
 
@@ -197,11 +189,19 @@ command -v bat >/dev/null 2>&1 && alias cat='bat --paging=never'
 # match. `cd` is left alone so muscle memory still works.
 _init_cache zoxide zoxide zoxide init zsh
 
+# Warp renders the command line in its own native input box instead of zsh's
+# line editor, so anything that hooks zle — autosuggestions, syntax
+# highlighting, fzf's key bindings — registers but never fires. Warp ships its
+# own equivalent of each, so skip loading ours there rather than carrying dead
+# weight. Everything below that isn't zle-bound still loads normally.
+[[ "$TERM_PROGRAM" == "WarpTerminal" ]] && _no_zle=1
+
 # fzf: Ctrl-R fuzzy history, Ctrl-T file picker, Alt-C directory jump.
+# The options apply either way — `fzf` as a plain command still works in Warp.
 if command -v fzf >/dev/null 2>&1; then
   # stderr silenced: fzf's widgets touch zle, which warns in shells that have
   # no line editor (zsh -i -c, scripted sourcing).
-  _init_cache fzf fzf fzf --zsh 2>/dev/null
+  (( ! ${_no_zle:-0} )) && _init_cache fzf fzf fzf --zsh 2>/dev/null
   export FZF_DEFAULT_OPTS="--height 40% --layout=reverse --border --info=inline"
   command -v fd >/dev/null 2>&1 && export FZF_DEFAULT_COMMAND='fd --type f --hidden --exclude .git'
 fi
@@ -209,12 +209,15 @@ fi
 # ── zsh plugins ───────────────────────────────────
 # Order matters: syntax-highlighting must be sourced last, and
 # autosuggestions expects to come before it.
-_zsh_plugin_dir="${HOMEBREW_PREFIX:-/opt/homebrew}/share"
-[ -s "$_zsh_plugin_dir/zsh-autosuggestions/zsh-autosuggestions.zsh" ] &&
-  source "$_zsh_plugin_dir/zsh-autosuggestions/zsh-autosuggestions.zsh"
-[ -s "$_zsh_plugin_dir/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ] &&
-  source "$_zsh_plugin_dir/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
-unset _zsh_plugin_dir
+if (( ! ${_no_zle:-0} )); then
+  _zsh_plugin_dir="${HOMEBREW_PREFIX:-/opt/homebrew}/share"
+  [ -s "$_zsh_plugin_dir/zsh-autosuggestions/zsh-autosuggestions.zsh" ] &&
+    source "$_zsh_plugin_dir/zsh-autosuggestions/zsh-autosuggestions.zsh"
+  [ -s "$_zsh_plugin_dir/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ] &&
+    source "$_zsh_plugin_dir/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+  unset _zsh_plugin_dir
+fi
+unset _no_zle
 
 # AI usage at a glance: `ai-usage` for both, or claude-usage / codex-usage
 # alone. Both live in ~/dotfiles/bin (on PATH above).
@@ -250,88 +253,6 @@ prompt-style() {
 # single compinit for the whole shell.
 export PATH="$HOME/.grok/bin:$PATH"
 # <<< grok installer <<<
-
-# >>> claude account switcher >>>
-# Claude derives its Keychain service name from the config dir: unset it and the
-# entry is "Claude Code-credentials", set it and an 8-char sha256 of the path is
-# appended. So a CLAUDE_CONFIG_DIR per account isolates credentials, history and
-# settings on its own — no setup-token needed, and two accounts can run at once.
-#
-# The corollary is that the default login is only reachable with the variable
-# unset: pointing it at ~/.claude hashes to a key that was never written and
-# reports "not logged in". That's why the work account below is the bare dir
-# rather than a named one — it keeps the existing login and its project history.
-CLAUDE_ACCOUNTS_DIR="$HOME/.claude-accounts"
-
-# Log in once per account before first use:
-#   claude auth login                                        # work (default dir)
-#   CLAUDE_CONFIG_DIR=~/.claude-accounts/<name> claude auth login
-claude-account-run() {
-  local name="$1"
-  if [[ -z "$name" ]]; then
-    echo "usage: claude-account-run <name> [claude args...]"
-    echo "accounts: $(claude-account-list | tr '\n' ' ')"
-    return 1
-  fi
-  shift
-  local dir="$CLAUDE_ACCOUNTS_DIR/$name"
-  _claude_account_seed "$dir" || return 1
-  if ! CLAUDE_CONFIG_DIR="$dir" command claude auth status 2>/dev/null | grep -q '"loggedIn": *true'; then
-    echo "'$name' isn't logged in yet. Run:"
-    echo "  CLAUDE_CONFIG_DIR=$dir claude auth login"
-    return 1
-  fi
-  CLAUDE_CONFIG_DIR="$dir" CLAUDE_ACCOUNT_LABEL="$name" command claude "$@"
-}
-
-# Reads the config dirs rather than the Keychain — `security dump-keychain`
-# raises an authorization dialog per item.
-claude-account-list() {
-  local names
-  # (N) so an empty accounts dir yields nothing instead of a "no matches" error.
-  names=("$CLAUDE_ACCOUNTS_DIR"/*(N/:t))
-  if (( ${#names} == 0 )); then
-    echo "No accounts yet. Create one with: claude-account-add <name>"
-    return 0
-  fi
-  print -l $names
-}
-
-# Seeds the dir and hands off to Claude's own browser login.
-claude-account-add() {
-  local name="$1"
-  if [[ -z "$name" ]]; then
-    echo "usage: claude-account-add <name>"
-    return 1
-  fi
-  _claude_account_seed "$CLAUDE_ACCOUNTS_DIR/$name" || return 1
-  CLAUDE_CONFIG_DIR="$CLAUDE_ACCOUNTS_DIR/$name" command claude auth login || return 1
-  echo "Ready. Launch it with: claude-account-run $name"
-}
-
-# Which account is a given dir logged into? No argument = the default dir.
-claude-whoami() {
-  local dir="${1:+$CLAUDE_ACCOUNTS_DIR/$1}"
-  if [[ -n "$dir" ]]; then
-    CLAUDE_CONFIG_DIR="$dir" command claude auth status
-  else
-    command claude auth status
-  fi
-}
-
-# Work keeps the default config dir, so it must run with CLAUDE_CONFIG_DIR unset.
-claude-cm()       { command claude "$@" }
-claude-personal() { claude-account-run personal "$@" }
-
-# A per-account CLAUDE_CONFIG_DIR starts empty, so the dotfiles-managed rules
-# and settings need the same links install.sh puts in ~/.claude.
-_claude_account_seed() {
-  local dir="$1"
-  mkdir -p "$dir" || return 1
-  [[ -e "$dir/CLAUDE.md" ]]     || ln -s "$HOME/.dotfiles/agents/AGENTS.md" "$dir/CLAUDE.md"
-  [[ -e "$dir/settings.json" ]] || ln -s "$HOME/.dotfiles/agents/claude/settings.json" "$dir/settings.json"
-}
-# <<< claude account switcher <<<
 
 # >>> gh account routing >>>
 # git picks its account from the includeIf on ~/costmine, but gh keeps a single

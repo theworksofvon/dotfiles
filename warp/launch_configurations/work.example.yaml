@@ -1,0 +1,23 @@
+---
+# Seeds ~/.warp/launch_configurations/work.yaml, which is gitignored — a real
+# launch config names the repos you work on, and this repo is public.
+#
+# Open it from the command palette (cmd-P) with "Launch Configuration", or
+# bind it to a shortcut in Warp's settings.
+#
+# cwd has to be an absolute path; Warp does not expand ~.
+name: work
+windows:
+  - tabs:
+      - title: api
+        color: blue
+        layout:
+          cwd: /Users/you/work/api
+      - title: web
+        color: green
+        layout:
+          cwd: /Users/you/work/web
+      - title: scratch
+        layout:
+          cwd: /Users/you/work
+    active_tab_index: 0

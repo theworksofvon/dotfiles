@@ -95,7 +95,14 @@ if [ ! -e "$HOME/.gitconfig.local" ] && ! $DRY_RUN; then
   echo "  created ~/.gitconfig.local — set your name and email there"
 fi
 echo "tmux"       ; link tmux/tmux.conf     "$HOME/.tmux.conf"
-echo "Ghostty"    ; link ghostty/config     "$HOME/.config/ghostty/config"
+echo "Warp"
+# Warp rewrites settings.toml as you change settings in the UI, so the live
+# file is gitignored and seeded from the example.
+link_live warp/settings.toml "$HOME/.warp/settings.toml"
+link warp/workflows "$HOME/.warp/workflows"
+# A launch config names real repo paths, so it's gitignored like the identity
+# files — edit the seeded copy for this machine.
+link_live warp/launch_configurations/work.yaml "$HOME/.warp/launch_configurations/work.yaml"
 echo "Neovim"     ; link nvim               "$HOME/.config/nvim"
 echo "mise"       ; link mise/config.toml   "$HOME/.config/mise/config.toml"
 # gh's config.yml holds preferences and aliases only — credentials live in

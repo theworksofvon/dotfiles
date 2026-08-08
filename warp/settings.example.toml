@@ -1,0 +1,50 @@
+# Seeds ~/.warp/settings.toml on a fresh machine. Warp rewrites the live file
+# from its own in-memory state on every settings change — hand edits to the
+# live file are overwritten within seconds — so that copy is gitignored and
+# only this seed is tracked. Change settings in Warp's UI, not in the file.
+#
+# Warp writes the full table skeleton whether or not the tables have contents;
+# leaving them here keeps the diff against a freshly written file small. It
+# also writes inline tables across multiple lines with trailing commas, which
+# strict TOML parsers reject — that's Warp's dialect, not corruption.
+
+[appearance]
+
+[appearance.themes]
+
+[appearance.vertical_tabs]
+
+[terminal]
+
+# The "universal" input box is Warp's native editor: it replaces zsh's line
+# editor, which is why zsh-autosuggestions, zsh-syntax-highlighting and fzf's
+# key bindings never fire there (zshrc skips loading them under Warp). It also
+# suppresses the shell's own prompt. "classic" plus honor_ps1 gives Starship
+# back at the cost of Warp's input features — pick whichever you prefer.
+[terminal.input]
+input_box_type_setting = "classic"
+honor_ps1 = true
+
+[agents]
+
+[agents.warp_agent]
+
+[agents.warp_agent.input]
+
+[agents.warp_agent.other]
+
+[agents.third_party]
+
+[account]
+
+[general]
+
+[code]
+
+[code.editor]
+
+[warp_drive]
+
+[privacy]
+
+[notifications]

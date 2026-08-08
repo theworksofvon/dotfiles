@@ -31,5 +31,5 @@ brew "mise"                      # runtimes and CLI tools
 brew "jq"                        # the formatter hook parses hook payloads with it
 
 # ── apps ──────────────────────────────────────────
-cask "ghostty"
+cask "warp"
 cask "font-jetbrains-mono-nerd-font"   # prompt and nvim icons need a Nerd Font
