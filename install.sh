@@ -130,6 +130,13 @@ if [ -d "$HOME/.claude" ] || command -v claude >/dev/null 2>&1; then
   link agents/AGENTS.md          "$HOME/.claude/CLAUDE.md"
   link_live agents/claude/settings.json "$HOME/.claude/settings.json"
   link agents/claude/skills/gh-stack "$HOME/.claude/skills/gh-stack"
+  # skills/ holds entries from other repos too, so it links per-skill;
+  # output-styles is owned entirely by this repo, so the directory links whole.
+  link agents/claude/output-styles "$HOME/.claude/output-styles"
+  # cswap accounts each get their own config dir; they share these styles.
+  for acct in "$HOME"/.claude-accounts/*/; do
+    [ -d "$acct" ] && link agents/claude/output-styles "${acct%/}/output-styles"
+  done
   link config/ccstatusline/settings.json "$HOME/.config/ccstatusline/settings.json"
   # Account labels hold a personal org ID, so the live file stays out of git for
   # privacy rather than churn; claude-account falls back to the email prefix.

@@ -209,6 +209,7 @@
     }
   },
   "model": "opus",
+  "outputStyle": "Simple",
   "permissions": {
     "allow": [],
     "ask": [
