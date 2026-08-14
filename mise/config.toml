@@ -12,6 +12,7 @@ node = "lts"
 # name — so accounts stay isolated and can run side by side. `cc` in zshrc
 # launches whichever account owns the current directory.
 "pipx:claude-swap" = "latest"
+herdr = "0.8.0"
 
 [settings]
 # Refuse to install any release younger than 7 days, so a compromised

@@ -1,0 +1,6 @@
+# Repos the PR/CI panel watches. One path per line; # comments ignored.
+~/costmine/Costmine.Underground.Backend
+~/costmine/Costmine.Portal.Backend
+~/costmine/dev-study-parse
+~/dev/pulse
+~/dev/pluto-predicts
