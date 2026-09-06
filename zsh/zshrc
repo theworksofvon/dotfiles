@@ -80,10 +80,6 @@ plugins=(git)
 # zsh-autosuggestions and zsh-syntax-highlighting come from Homebrew rather
 # than $ZSH_CUSTOM, so they're sourced below the oh-my-zsh init instead.
 
-# Completion dirs have to join fpath before oh-my-zsh runs compinit, otherwise
-# each one needs its own second compinit call (~8ms each).
-[ -d "$HOME/.grok/completions/zsh" ] && fpath=("$HOME/.grok/completions/zsh" $fpath)
-
 [ -s "$ZSH/oh-my-zsh.sh" ] && source "$ZSH/oh-my-zsh.sh"
 
 # User configuration
@@ -196,19 +192,11 @@ command -v bat >/dev/null 2>&1 && alias cat='bat --paging=never'
 # match. `cd` is left alone so muscle memory still works.
 _init_cache zoxide zoxide zoxide init zsh
 
-# Warp renders the command line in its own native input box instead of zsh's
-# line editor, so anything that hooks zle — autosuggestions, syntax
-# highlighting, fzf's key bindings — registers but never fires. Warp ships its
-# own equivalent of each, so skip loading ours there rather than carrying dead
-# weight. Everything below that isn't zle-bound still loads normally.
-[[ "$TERM_PROGRAM" == "WarpTerminal" ]] && _no_zle=1
-
 # fzf: Ctrl-R fuzzy history, Ctrl-T file picker, Alt-C directory jump.
-# The options apply either way — `fzf` as a plain command still works in Warp.
 if command -v fzf >/dev/null 2>&1; then
   # stderr silenced: fzf's widgets touch zle, which warns in shells that have
   # no line editor (zsh -i -c, scripted sourcing).
-  (( ! ${_no_zle:-0} )) && _init_cache fzf fzf fzf --zsh 2>/dev/null
+  _init_cache fzf fzf fzf --zsh 2>/dev/null
   export FZF_DEFAULT_OPTS="--height 40% --layout=reverse --border --info=inline"
   command -v fd >/dev/null 2>&1 && export FZF_DEFAULT_COMMAND='fd --type f --hidden --exclude .git'
 fi
@@ -216,15 +204,12 @@ fi
 # ── zsh plugins ───────────────────────────────────
 # Order matters: syntax-highlighting must be sourced last, and
 # autosuggestions expects to come before it.
-if (( ! ${_no_zle:-0} )); then
-  _zsh_plugin_dir="${HOMEBREW_PREFIX:-/opt/homebrew}/share"
-  [ -s "$_zsh_plugin_dir/zsh-autosuggestions/zsh-autosuggestions.zsh" ] &&
-    source "$_zsh_plugin_dir/zsh-autosuggestions/zsh-autosuggestions.zsh"
-  [ -s "$_zsh_plugin_dir/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ] &&
-    source "$_zsh_plugin_dir/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
-  unset _zsh_plugin_dir
-fi
-unset _no_zle
+_zsh_plugin_dir="${HOMEBREW_PREFIX:-/opt/homebrew}/share"
+[ -s "$_zsh_plugin_dir/zsh-autosuggestions/zsh-autosuggestions.zsh" ] &&
+  source "$_zsh_plugin_dir/zsh-autosuggestions/zsh-autosuggestions.zsh"
+[ -s "$_zsh_plugin_dir/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ] &&
+  source "$_zsh_plugin_dir/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+unset _zsh_plugin_dir
 
 # AI usage at a glance: `ai-usage` for both, or claude-usage / codex-usage
 # alone. Both live in ~/dotfiles/bin (on PATH above).
@@ -255,12 +240,6 @@ prompt-style() {
   fi
 }
 
-# >>> grok installer >>>
-# The completions fpath entry moved above the oh-my-zsh init, which runs the
-# single compinit for the whole shell.
-export PATH="$HOME/.grok/bin:$PATH"
-# <<< grok installer <<<
-
 # gh routing lives in ~/.dotfiles/bin/gh, not a function here — a function only
 # applies inside interactive zsh, so scripts and other processes bypassed it.
 
@@ -277,5 +256,25 @@ export PATH="$HOME/.grok/bin:$PATH"
 #   cswap list    → accounts with live usage
 cc() { cswap run "$@" }
 
+# Course work runs on a clean slate: an empty CLAUDE_CONFIG_DIR means no global
+# CLAUDE.md, no skills, plugins or hooks, so course material can't interact with
+# this setup — and nothing here has to be backed up or moved aside to get there.
+#
+# Scoped by directory rather than a launcher for the reason cc isn't one either:
+# plain `claude` inherits the exported var, including the subagent and hook
+# re-execs an alias would miss. Only unsets what it set, so cc stays untouched.
+CLAUDE_COURSE_DIR="$HOME/dev/ai-hero"
+CLAUDE_COURSE_CONFIG="$HOME/.claude-course"
+autoload -Uz add-zsh-hook
+claude-course-config() {
+  if [[ "$PWD/" == "$CLAUDE_COURSE_DIR"/* ]]; then
+    export CLAUDE_CONFIG_DIR="$CLAUDE_COURSE_CONFIG"
+  elif [[ "$CLAUDE_CONFIG_DIR" == "$CLAUDE_COURSE_CONFIG" ]]; then
+    unset CLAUDE_CONFIG_DIR
+  fi
+}
+add-zsh-hook chpwd claude-course-config
+claude-course-config
+
 # opencode
-export PATH=/Users/davontaejackson/.opencode/bin:$PATH
+export PATH="$HOME/.opencode/bin:$PATH"
