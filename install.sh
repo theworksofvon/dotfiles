@@ -94,15 +94,7 @@ if [ ! -e "$HOME/.gitconfig.local" ] && ! $DRY_RUN; then
   cp "$DOTFILES/git/gitconfig.local.example" "$HOME/.gitconfig.local"
   echo "  created ~/.gitconfig.local — set your name and email there"
 fi
-echo "tmux"       ; link tmux/tmux.conf     "$HOME/.tmux.conf"
-echo "Warp"
-# Warp rewrites settings.toml as you change settings in the UI, so the live
-# file is gitignored and seeded from the example.
-link_live warp/settings.toml "$HOME/.warp/settings.toml"
-link warp/workflows "$HOME/.warp/workflows"
-# A launch config names real repo paths, so it's gitignored like the identity
-# files — edit the seeded copy for this machine.
-link_live warp/launch_configurations/work.yaml "$HOME/.warp/launch_configurations/work.yaml"
+echo "Ghostty"    ; link ghostty/config      "$HOME/.config/ghostty/config"
 echo "Neovim"     ; link nvim               "$HOME/.config/nvim"
 echo "mise"       ; link mise/config.toml   "$HOME/.config/mise/config.toml"
 # gh's config.yml holds preferences and aliases only — credentials live in
@@ -122,16 +114,18 @@ else
 fi
 # ── coding agents ─────────────────────────────────
 # Each agent is configured only if it's actually installed, so this works with
-# one of them, two, or all three. agents/AGENTS.md is the single source of
+# one of them or all of them. agents/AGENTS.md is the single source of
 # instructions; each tool reads it under the name it expects.
 echo "Agents"
 
 if [ -d "$HOME/.claude" ] || command -v claude >/dev/null 2>&1; then
   link agents/AGENTS.md          "$HOME/.claude/CLAUDE.md"
   link_live agents/claude/settings.json "$HOME/.claude/settings.json"
-  link agents/claude/skills/gh-stack "$HOME/.claude/skills/gh-stack"
   # skills/ holds entries from other repos too, so it links per-skill;
   # output-styles is owned entirely by this repo, so the directory links whole.
+  for skill in "$DOTFILES"/agents/skills/*/; do
+    link "agents/skills/$(basename "$skill")" "$HOME/.claude/skills/$(basename "$skill")"
+  done
   link agents/claude/output-styles "$HOME/.claude/output-styles"
   # cswap accounts each get their own config dir; they share these styles.
   for acct in "$HOME"/.claude-accounts/*/; do
@@ -148,29 +142,22 @@ fi
 if [ -d "$HOME/.codex" ] || command -v codex >/dev/null 2>&1; then
   link agents/AGENTS.md "$HOME/.codex/AGENTS.md"
   link_live agents/codex/config.toml "$HOME/.codex/config.toml"
+  # Same SKILL.md format as Claude, so the shared skills link into both.
+  for skill in "$DOTFILES"/agents/skills/*/; do
+    link "agents/skills/$(basename "$skill")" "$HOME/.codex/skills/$(basename "$skill")"
+  done
 else
   echo "  ${dim}·${reset} Codex not installed, skipped"
 fi
 
 if [ -d "$HOME/.opencode" ] || [ -d "$HOME/.config/opencode" ] || command -v opencode >/dev/null 2>&1; then
-  # opencode reads global rules from ~/.config/opencode/AGENTS.md, so unlike
-  # Cursor it needs no per-project step.
+  # opencode reads global rules from ~/.config/opencode/AGENTS.md, so it needs
+  # no per-project step.
   link agents/AGENTS.md              "$HOME/.config/opencode/AGENTS.md"
   link agents/opencode/opencode.json "$HOME/.config/opencode/opencode.json"
   link agents/opencode/plugins/notify.js "$HOME/.config/opencode/plugins/notify.js"
 else
   echo "  ${dim}·${reset} opencode not installed, skipped"
-fi
-
-if [ -d "$HOME/.cursor" ] || command -v cursor-agent >/dev/null 2>&1; then
-  link agents/cursor/cli-config.json "$HOME/.cursor/cli-config.json"
-  link agents/cursor/hooks.json      "$HOME/.cursor/hooks.json"
-  link agents/cursor/mcp.json        "$HOME/.cursor/mcp.json"
-  # Cursor has no global instructions file — User Rules are UI-only and
-  # AGENTS.md is read per-project. `agent-rules` drops it into a project.
-  echo "  ${dim}·${reset} Cursor: run 'agent-rules' in a project for AGENTS.md"
-else
-  echo "  ${dim}·${reset} Cursor not installed, skipped"
 fi
 
 echo "Starship"

@@ -1,0 +1,68 @@
+# Copy to <repo>/.orchestrator/config.toml. mo.py reads it from the repo root.
+#
+# A stage runs as:
+#   mo run-stage --task-id T-1 --stage implement --role implementer --input packet.md
+#   mo run-stage ... --profile claude        # pick a profile for this stage
+#   mo run-stage ... --provider codex -m sol # bypass profiles entirely
+# `mo profiles` prints every profile with roles resolved to concrete models.
+#
+# The provider's command receives the packet on stdin. Placeholders are
+# shell-quoted before substitution: {task_id} {run_id} {stage} {model}
+# {input_file} {run_dir}. The assistant's final answer is copied to
+# {run_dir}/last-message.md for every provider.
+
+default_profile = "mixed"
+
+# A profile fixes which alias plays each role. Single-provider profiles are
+# for when quota or policy says "only Claude" or "only OpenAI"; the reviewer
+# is then a different model rather than a different provider.
+[profiles.claude]
+planner = "fable"
+implementer = "sonnet"
+reviewer = "opus"
+
+[profiles.openai]
+planner = "astra"
+implementer = "mini"
+reviewer = "sol"
+
+# Mixed: strongest planner, cheapest capable implementer, review from a
+# provider that did not write the code.
+[profiles.mixed]
+planner = "fable"
+implementer = "glm-flash"
+reviewer = "sol"
+
+# Aliases keep profiles stable while concrete model IDs move underneath.
+# Check `claude --help`, `codex --help`, and `opencode models` when these
+# names go stale.
+[models]
+fable = { model = "claude-fable-5-1", provider = "claude" }
+opus = { model = "claude-opus-5", provider = "claude" }
+sonnet = { model = "claude-sonnet-5", provider = "claude" }
+haiku = { model = "claude-haiku-4-5-20251001", provider = "claude" }
+astra = { model = "gpt-6-astra", provider = "codex" }
+sol = { model = "gpt-5.6-sol", provider = "codex" }
+mini = { model = "gpt-5.4-mini", provider = "codex" }
+glm-flash = { model = "opencode-go/glm-5.3-flash", provider = "opencode" }
+deepseek-flash = { model = "opencode-go/deepseek-v4-flash", provider = "opencode" }
+kimi = { model = "opencode-go/kimi-k2.7-code", provider = "opencode" }
+
+# JSON output is what lets mo.py record exact usage and cost.
+#   claude:   one result object with total_cost_usd, duration_api_ms, usage.
+#   codex:    JSONL events; no cost reported, so stages are "estimated" only
+#             when [pricing] has a rate card. -o writes the final message.
+#   opencode: JSONL events; step_finish carries tokens and cost.
+[providers]
+claude = "claude -p --output-format json --model {model} --permission-mode acceptEdits"
+codex = "codex exec --json -m {model} -s workspace-write --skip-git-repo-check -o {run_dir}/last-message.md"
+opencode = "opencode run --format json --pure -m {model}"
+
+# Rate cards, used only when a provider reports tokens but not cost. Fill
+# from the current price list; leave empty to record cost as "unavailable".
+[pricing]
+
+[budgets]
+max_estimated_cost_usd = 5.0
+max_repair_cycles = 3
+max_stage_duration_minutes = 30
