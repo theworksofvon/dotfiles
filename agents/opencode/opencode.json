@@ -1,11 +1,4 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "autoupdate": true,
-  "mcp": {
-    "context7": {
-      "type": "local",
-      "command": ["context7-mcp"],
-      "enabled": true
-    }
-  }
+  "autoupdate": true
 }

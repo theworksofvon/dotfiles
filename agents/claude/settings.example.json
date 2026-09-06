@@ -6,27 +6,8 @@
     "sessionUrl": false
   },
   "enabledPlugins": {
-    "claude-code-setup@claude-plugins-official": true,
-    "claude-md-management@claude-plugins-official": true,
-    "code-review@claude-plugins-official": true,
-    "code-simplifier@claude-plugins-official": true,
-    "codex@openai-codex": true,
-    "feature-dev@claude-plugins-official": true,
-    "frontend-design@claude-plugins-official": true,
     "pr-review-toolkit@claude-plugins-official": true,
-    "pyright-lsp@claude-plugins-official": true,
-    "security-guidance@claude-plugins-official": true,
-    "superpowers@claude-plugins-official": true,
-    "typescript-lsp@claude-plugins-official": true
-  },
-  "extraKnownMarketplaces": {
-    "openai-codex": {
-      "autoUpdate": true,
-      "source": {
-        "repo": "openai/codex-plugin-cc",
-        "source": "github"
-      }
-    }
+    "superpowers@claude-plugins-official": true
   },
   "hooks": {
     "Notification": [
@@ -37,16 +18,6 @@
             "type": "command"
           }
         ]
-      },
-      {
-        "hooks": [
-          {
-            "async": true,
-            "command": "$HOME/.local/bin/pulse emit notification",
-            "type": "command"
-          }
-        ],
-        "matcher": ""
       }
     ],
     "PostToolUse": [
@@ -58,28 +29,6 @@
           }
         ],
         "matcher": "Write|Edit|MultiEdit"
-      },
-      {
-        "hooks": [
-          {
-            "async": true,
-            "command": "$HOME/.local/bin/pulse emit post_tool_use",
-            "type": "command"
-          }
-        ],
-        "matcher": ""
-      }
-    ],
-    "PostToolUseFailure": [
-      {
-        "hooks": [
-          {
-            "async": true,
-            "command": "$HOME/.local/bin/pulse emit post_tool_use_failure",
-            "type": "command"
-          }
-        ],
-        "matcher": ""
       }
     ],
     "PreToolUse": [
@@ -108,40 +57,6 @@
           }
         ],
         "matcher": "mcp__.*[Gg]ithub.*"
-      },
-      {
-        "hooks": [
-          {
-            "async": true,
-            "command": "$HOME/.local/bin/pulse emit pre_tool_use",
-            "type": "command"
-          }
-        ],
-        "matcher": ""
-      }
-    ],
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "async": true,
-            "command": "$HOME/.local/bin/pulse emit session_end",
-            "type": "command"
-          }
-        ],
-        "matcher": ""
-      }
-    ],
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "async": true,
-            "command": "$HOME/.local/bin/pulse emit session_start",
-            "type": "command"
-          }
-        ],
-        "matcher": ""
       }
     ],
     "Stop": [
@@ -152,61 +67,8 @@
             "type": "command"
           }
         ]
-      },
-      {
-        "hooks": [
-          {
-            "async": true,
-            "command": "$HOME/.local/bin/pulse emit stop",
-            "type": "command"
-          }
-        ],
-        "matcher": ""
-      }
-    ],
-    "SubagentStart": [
-      {
-        "hooks": [
-          {
-            "async": true,
-            "command": "$HOME/.local/bin/pulse emit subagent_start",
-            "type": "command"
-          }
-        ],
-        "matcher": ""
-      }
-    ],
-    "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "async": true,
-            "command": "$HOME/.local/bin/pulse emit subagent_stop",
-            "type": "command"
-          }
-        ],
-        "matcher": ""
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "async": true,
-            "command": "$HOME/.local/bin/pulse emit user_prompt_submit",
-            "type": "command"
-          }
-        ],
-        "matcher": ""
       }
     ]
-  },
-  "mcpServers": {
-    "context7": {
-      "args": [],
-      "command": "context7-mcp",
-      "env": {}
-    }
   },
   "model": "opus",
   "outputStyle": "Simple",
@@ -220,7 +82,6 @@
       "Edit(~/.gitconfig)",
       "Edit(~/.claude/**)",
       "Edit(~/.codex/**)",
-      "Edit(~/.cursor/**)",
       "Edit(~/.config/**)",
       "Write(~/.config/**)",
       "Bash(sudo:*)",
@@ -251,8 +112,8 @@
       "Bash(mise prune:*)",
       "Bash(mise implode:*)",
       "Bash(codex uninstall:*)",
-      "Bash(opencode uninstall:*)",
       "Bash(claude uninstall:*)",
+      "Bash(opencode uninstall:*)",
       "Bash(docker system prune:*)",
       "Bash(docker volume rm:*)",
       "Bash(docker volume prune:*)",

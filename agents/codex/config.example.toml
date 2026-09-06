@@ -150,12 +150,6 @@ status_line = [
   "weekly-limit",
 ]
 
-# Live library documentation, so agents work from current APIs rather than
-# remembered ones. Same server is configured for Claude, Cursor, and opencode.
-[mcp_servers.context7]
-command = "context7-mcp"
-args = []
-
 
 # ── protected branches ────────────────────────────
 # guard-main blocks pushes and merges that would land on main. A static rule
