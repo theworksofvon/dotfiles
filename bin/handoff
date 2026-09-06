@@ -8,9 +8,7 @@
  * agent actually said, adds the repository state a fresh agent would otherwise
  * have to rediscover, and writes HANDOFF.md for the next one to read.
  *
- * opencode is covered too, via its own `export` command. Cursor stores its
- * chats in a VS Code SQLite blob rather than files, so it works as a
- * destination but not yet as a source.
+ * opencode is covered too, via its own `export` command.
  *
  * By default the dialogue is summarized into a brief, because a verbatim
  * transcript can run to tens of thousands of tokens the receiving agent pays
@@ -461,4 +459,3 @@ console.log("");
 console.log("Continue elsewhere:");
 console.log('  claude       "read HANDOFF.md and continue where we left off"');
 console.log('  codex        "read HANDOFF.md and continue where we left off"');
-console.log('  cursor-agent "read HANDOFF.md and continue where we left off"');

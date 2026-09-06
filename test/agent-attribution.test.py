@@ -28,14 +28,6 @@ for name in ("config.toml", "config.example.toml"):
         codex = tomllib.load(file)
     assert codex["commit_attribution"] == "", f"{path}: attribution is enabled"
 
-with (ROOT / "agents" / "cursor" / "cli-config.json").open() as file:
-    cursor = json.load(file)
-
-assert cursor["attribution"] == {
-    "attributeCommitsToAgent": False,
-    "attributePRsToAgent": False,
-}
-
 instructions = (ROOT / "agents" / "AGENTS.md").read_text()
 assert "Do not add AI attribution" in instructions
 

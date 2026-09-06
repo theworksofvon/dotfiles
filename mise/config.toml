@@ -3,7 +3,6 @@
 # and mise is already activated. Projects pinning a version in .nvmrc are
 # honoured via idiomatic_version_file_enable_tools below.
 node = "lts"
-"npm:@upstash/context7-mcp" = "latest"
 "npm:ccstatusline" = "latest"
 "npm:prettier" = "latest"
 "pipx:sqlfluff" = "latest"
@@ -12,7 +11,8 @@ node = "lts"
 # name — so accounts stay isolated and can run side by side. `cc` in zshrc
 # launches whichever account owns the current directory.
 "pipx:claude-swap" = "latest"
-herdr = "0.8.0"
+pulumi = "latest"
+ansible = { version = "latest", pipx_args = "--include-deps", uvx = false }
 
 [settings]
 # Refuse to install any release younger than 7 days, so a compromised

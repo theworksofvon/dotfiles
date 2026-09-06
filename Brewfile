@@ -26,10 +26,10 @@ brew "neovim"
 brew "clang-format"              # C++ formatting for the agent hook
 brew "llvm"                      # clangd, for real C++ diagnostics
 brew "rust-analyzer"             # Rust language server
-brew "tmux"
 brew "mise"                      # runtimes and CLI tools
 brew "jq"                        # the formatter hook parses hook payloads with it
 
 # ── apps ──────────────────────────────────────────
-cask "warp"
+cask "ghostty"                   # terminal
+cask "t3-code"                   # editor and coding agent
 cask "font-jetbrains-mono-nerd-font"   # prompt and nvim icons need a Nerd Font

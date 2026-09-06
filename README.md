@@ -1,6 +1,6 @@
 # dotfiles
 
-macOS terminal: zsh, Starship, Warp, tmux, git, and coding agents.
+macOS terminal: zsh, Starship, Ghostty, git, and coding agents.
 
 ## Install
 
@@ -9,7 +9,7 @@ git clone https://github.com/theworksofvon/dotfiles.git ~/dotfiles
 cd ~/dotfiles && ./setup.sh     # --dry-run to preview, --no-install to link only
 ```
 
-Installs what's missing (Homebrew, starship, mise, jq, Warp, the Nerd Font,
+Installs what's missing (Homebrew, starship, mise, jq, Ghostty, the Nerd Font,
 oh-my-zsh), then symlinks the configs. Re-running only fills gaps. Restart the
 terminal afterwards.
 
@@ -73,14 +73,14 @@ spending slower than the clock, 🟡 slightly ahead, 🔴 on pace to run out ear
 
 ## Guardrails
 
-Claude, Codex, and Cursor are each blocked from writing outside the project
-without approval, from destructive commands (recursive deletes, force pushes,
-history rewrites), and from reading `.env`, SSH keys, and credentials. Pre-tool
-hooks block pushes and merges to protected branches, including an implicit
+Claude and Codex are both blocked from writing outside the project without
+approval, from destructive commands (recursive deletes, force pushes, history
+rewrites), and from reading `.env`, SSH keys, and credentials. Pre-tool hooks
+block pushes and merges to protected branches, including an implicit
 `git push` issued while sitting on `main`.
 
-Claude uses `ask`/`deny` rules; Codex and Cursor use their sandboxes, which
-enforce rather than prompt. opencode is installed but not covered.
+Claude uses `ask`/`deny` rules; Codex uses its sandbox, which enforces rather
+than prompts. opencode is configured but not covered by either.
 
 ## Things worth remembering
 
@@ -95,8 +95,8 @@ enforce rather than prompt. opencode is installed but not covered.
   isn't focused.
 - **git** — rerere replays how you resolved a conflict last time. Histogram
   diffs, `zdiff3` markers, rebase autosquash and autostash, push sets upstream.
-- **tmux** — `C-b |` and `C-b -` split, `C-b hjkl` moves, `y` yanks to the
-  system clipboard.
+- **Ghostty** — `cmd+d` and `cmd+shift+d` split, `cmd+opt+arrow` moves,
+  `cmd+up`/`cmd+down` jump between prompts.
 
 ## Layout
 

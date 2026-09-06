@@ -2,9 +2,8 @@
 # agent-rules — put the shared agent instructions into a project.
 #
 # Claude and Codex read instructions from a global path, so they're covered by
-# install.sh. Cursor is not: its User Rules are UI-only and AGENTS.md is read
-# per-project. This drops AGENTS.md into a repo so Cursor (and Codex, and any
-# other AGENTS.md-aware tool) picks up the same rules.
+# install.sh. Other tools read AGENTS.md per-project instead — this drops it
+# into a repo so any AGENTS.md-aware tool picks up the same rules.
 #
 #   agent-rules              symlink AGENTS.md into the current repo
 #   agent-rules --copy       copy instead, for repos shared with other people
