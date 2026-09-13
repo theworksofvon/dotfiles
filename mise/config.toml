@@ -1,8 +1,30 @@
+# Runtimes and CLI tools whose version varies per project. The other half of
+# the toolchain — one-global-version tools and GUI apps — lives in ../Brewfile.
+#
+# mise shims every binary here and picks the version from the nearest
+# mise.toml / .nvmrc / .python-version as you cd, which is the thing Homebrew
+# cannot do. Keep a tool in exactly one of the two files.
+
 [tools]
 # Node moved here from nvm — sourcing nvm.sh cost ~230ms on every shell,
 # and mise is already activated. Projects pinning a version in .nvmrc are
 # honoured via idiomatic_version_file_enable_tools below.
 node = "lts"
+# Single global default. Per-project versions live in each project's
+# mise.toml / .python-version, not here. Without this, `python` resolves to
+# nothing at all outside a project.
+python = "3.14"
+# Moved off Homebrew: the frontends pin pnpm in packageManager, and uv
+# resolves per-project Python. A brew-installed copy won on PATH and silently
+# ignored those pins.
+pnpm = "latest"
+uv = "latest"
+# Was a standalone ~/.bun install on PATH ahead of mise. One owner instead.
+bun = "latest"
+# Project tooling — pinned here so a repo's justfile and secret scan run the
+# same version everywhere, rather than whatever brew last upgraded to.
+just = "latest"
+gitleaks = "latest"
 "npm:ccstatusline" = "latest"
 "npm:prettier" = "latest"
 "pipx:sqlfluff" = "latest"
@@ -21,7 +43,12 @@ minimum_release_age = "7d"
 # mise ignores .nvmrc by default. The frontend repos pin their Node version
 # there rather than in a mise config, so opt Node back in.
 idiomatic_version_file_enable_tools = ["node"]
+# One entry now that every repo lives under ~/src/<org>/<repo>.
 trusted_config_paths = [
-  "/Users/davontaejackson/costmine",
-  "/Users/davontaejackson/dev",
+  "/Users/davontaejackson/src",
 ]
+
+[settings.python]
+# `cd` into a project with a pyproject.toml and the venv is created and
+# activated for you — no manual `uv venv && source .venv/bin/activate`.
+uv_venv_auto = "create|source"

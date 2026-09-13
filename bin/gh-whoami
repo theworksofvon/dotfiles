@@ -4,7 +4,7 @@
 # The answer changes with the directory (see the gh shim next to this file), so
 # it's worth asking before a push or a PR lands under the wrong account.
 
-GH_WORK_TREE="$HOME/costmine"
+GH_WORK_TREE="$HOME/src/costmine"
 
 who=$(gh api user --jq .login 2>/dev/null) || {
   echo "gh: not logged in" >&2

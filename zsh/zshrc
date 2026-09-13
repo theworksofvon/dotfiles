@@ -140,14 +140,9 @@ for _brew in /opt/homebrew/bin/brew /usr/local/bin/brew /home/linuxbrew/.linuxbr
 done
 unset _brew
 
-# Node comes from mise (activated below), not nvm.
-
-# bun completions
-[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
-
-# bun
-export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"
+# Node and bun both come from mise (activated below). The standalone ~/.bun
+# install used to sit ahead of the shims on PATH, so `bun` bypassed mise and
+# ignored any per-project pin — one owner instead.
 
 # mise — manages CLI tools (prettier, sqlfluff, cswap) and the Node runtime.
 _init_cache mise mise mise activate zsh
@@ -244,7 +239,7 @@ prompt-style() {
 # applies inside interactive zsh, so scripts and other processes bypassed it.
 
 # Claude account by directory, the same rule git and gh follow: work under
-# ~/costmine, personal everywhere else. cswap gives each account its own
+# ~/src/costmine, personal everywhere else. cswap gives each account its own
 # CLAUDE_CONFIG_DIR — which Claude hashes into its Keychain service name — so
 # they stay isolated and can run side by side without swapping any shared login.
 #
@@ -256,21 +251,29 @@ prompt-style() {
 #   cswap list    → accounts with live usage
 cc() { cswap run "$@" }
 
-# Course work runs on a clean slate: an empty CLAUDE_CONFIG_DIR means no global
-# CLAUDE.md, no skills, plugins or hooks, so course material can't interact with
-# this setup — and nothing here has to be backed up or moved aside to get there.
+# Course work runs on a clean slate: an empty CLAUDE_CONFIG_DIR means no
+# skills, plugins, hooks, MCP servers or memory, so course material can't
+# interact with this setup — and nothing here has to be moved aside to get there.
+#
+# ~/.claude/CLAUDE.md is the exception: Claude reads that path regardless of
+# CLAUDE_CONFIG_DIR, and neither --setting-sources nor a CLAUDE.md in the course
+# config dir displaces it. The only switch that drops it disables every
+# CLAUDE.md, project ones included. Module 5 of the course (steering with
+# CLAUDE.md) needs those back: `unset CLAUDE_CODE_DISABLE_CLAUDE_MDS` in that
+# terminal for the lesson.
 #
 # Scoped by directory rather than a launcher for the reason cc isn't one either:
-# plain `claude` inherits the exported var, including the subagent and hook
+# plain `claude` inherits the exported vars, including the subagent and hook
 # re-execs an alias would miss. Only unsets what it set, so cc stays untouched.
-CLAUDE_COURSE_DIR="$HOME/dev/ai-hero"
+CLAUDE_COURSE_DIR="$HOME/src/learning/ai-hero"
 CLAUDE_COURSE_CONFIG="$HOME/.claude-course"
 autoload -Uz add-zsh-hook
 claude-course-config() {
   if [[ "$PWD/" == "$CLAUDE_COURSE_DIR"/* ]]; then
     export CLAUDE_CONFIG_DIR="$CLAUDE_COURSE_CONFIG"
+    export CLAUDE_CODE_DISABLE_CLAUDE_MDS=1
   elif [[ "$CLAUDE_CONFIG_DIR" == "$CLAUDE_COURSE_CONFIG" ]]; then
-    unset CLAUDE_CONFIG_DIR
+    unset CLAUDE_CONFIG_DIR CLAUDE_CODE_DISABLE_CLAUDE_MDS
   fi
 }
 add-zsh-hook chpwd claude-course-config
@@ -278,3 +281,6 @@ claude-course-config
 
 # opencode
 export PATH="$HOME/.opencode/bin:$PATH"
+
+# Added by cua-driver-rs installer — see https://github.com/trycua/cua
+export PATH="/Users/davontaejackson/.local/bin:$PATH"
