@@ -152,6 +152,10 @@ _init_cache mise mise mise activate zsh
 # brew or mise binary, so winning outright costs nothing.
 export PATH="$HOME/.dotfiles/bin:$HOME/.local/bin:$PATH"
 
+# Python writes its bytecode cache here instead of a __pycache__ beside every module,
+# so repos stay browsable. Imports stay as fast; the cache just lives elsewhere.
+export PYTHONPYCACHEPREFIX="$HOME/.cache/pycache"
+
 # Starship prompt (replaces the Oh My Zsh ZSH_THEME above).
 # Falls back to the oh-my-zsh theme if Starship isn't installed yet.
 _init_cache starship starship starship init zsh
