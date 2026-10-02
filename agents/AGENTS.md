@@ -17,8 +17,8 @@ Where things live. Go straight to these rather than scanning for them.
 - `~/src/theworksofvon/dotfiles/Brewfile` and `mise/config.toml` — the two
   halves of the toolchain. A tool belongs to exactly one of them; see
   "Shell and tools" below.
-- `~/src/theworksofvon/dotfiles/agents/skills/` — skills, shared by all three
-  harnesses via symlink. Adding one means linking it into each.
+- `~/src/theworksofvon/vstack/skills/` — skills, shared by all three harnesses
+  via symlink. Adding one means linking it into each; `skill-forge` does it.
 
 ## Communication
 

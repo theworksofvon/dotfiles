@@ -17,7 +17,8 @@ bold=$(tput bold 2>/dev/null || true)
 
 # link <path-in-repo> <target-in-home>
 link() {
-  local src="$DOTFILES/$1" dst="$2" pretty="~${2#"$HOME"}"
+  local src dst="$2" pretty="~${2#"$HOME"}"
+  case "$1" in /*) src="$1" ;; *) src="$DOTFILES/$1" ;; esac
 
   if [ ! -e "$src" ]; then
     echo "  missing in repo, skipped: $1" >&2
@@ -121,11 +122,6 @@ echo "Agents"
 if [ -d "$HOME/.claude" ] || command -v claude >/dev/null 2>&1; then
   link agents/AGENTS.md          "$HOME/.claude/CLAUDE.md"
   link_live agents/claude/settings.json "$HOME/.claude/settings.json"
-  # skills/ holds entries from other repos too, so it links per-skill;
-  # output-styles is owned entirely by this repo, so the directory links whole.
-  for skill in "$DOTFILES"/agents/skills/*/; do
-    link "agents/skills/$(basename "$skill")" "$HOME/.claude/skills/$(basename "$skill")"
-  done
   link agents/claude/output-styles "$HOME/.claude/output-styles"
   # cswap accounts each get their own config dir; they share these styles.
   for acct in "$HOME"/.claude-accounts/*/; do
@@ -142,10 +138,6 @@ fi
 if [ -d "$HOME/.codex" ] || command -v codex >/dev/null 2>&1; then
   link agents/AGENTS.md "$HOME/.codex/AGENTS.md"
   link_live agents/codex/config.toml "$HOME/.codex/config.toml"
-  # Same SKILL.md format as Claude, so the shared skills link into both.
-  for skill in "$DOTFILES"/agents/skills/*/; do
-    link "agents/skills/$(basename "$skill")" "$HOME/.codex/skills/$(basename "$skill")"
-  done
 else
   echo "  ${dim}·${reset} Codex not installed, skipped"
 fi
@@ -158,6 +150,21 @@ if [ -d "$HOME/.opencode" ] || [ -d "$HOME/.config/opencode" ] || command -v ope
   link agents/opencode/plugins/notify.js "$HOME/.config/opencode/plugins/notify.js"
 else
   echo "  ${dim}·${reset} opencode not installed, skipped"
+fi
+
+# Skills live in their own repo (vstack) and share one SKILL.md format across
+# all three harnesses, so they link per-skill into whichever are installed.
+VSTACK="$HOME/src/theworksofvon/vstack"
+if [ -d "$VSTACK/skills" ]; then
+  for dst in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.config/opencode/skills"; do
+    [ -d "$(dirname "$dst")" ] || continue
+    mkdir -p "$dst"
+    for skill in "$VSTACK"/skills/*/; do
+      link "${skill%/}" "$dst/$(basename "$skill")"
+    done
+  done
+else
+  echo "  ${dim}·${reset} vstack not cloned at $VSTACK, skills skipped"
 fi
 
 echo "Starship"
