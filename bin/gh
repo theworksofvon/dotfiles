@@ -1,7 +1,7 @@
 #!/bin/sh
 # gh — route each invocation to the GitHub account that owns the directory.
 #
-# git picks its account from the includeIf on ~/costmine, but gh keeps a single
+# git picks its account from the includeIf on ~/src/costmine, but gh keeps a single
 # globally active account and has no per-directory equivalent. So wrap it: in
 # the work tree, hand that one invocation the work account's token.
 #
@@ -18,7 +18,7 @@
 
 GH_WORK_USER="djackson-costmine"
 GH_PERSONAL_USER="theworksofvon"
-GH_WORK_TREE="$HOME/costmine"
+GH_WORK_TREE="$HOME/src/costmine"
 
 # Resolve the real binary by re-scanning PATH with this shim's own directory
 # removed — hardcoding /opt/homebrew/bin/gh would break on a different prefix.

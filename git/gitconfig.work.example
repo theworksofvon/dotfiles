@@ -1,5 +1,5 @@
 # Copied to ~/.gitconfig.work by setup.sh, then never tracked.
-# Pulled in by the includeIf in gitconfig for repos under ~/costmine.
+# Pulled in by the includeIf in gitconfig for repos under ~/src/costmine.
 [user]
 	name = Your Work Username
 	email = you@work.example

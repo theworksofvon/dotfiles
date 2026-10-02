@@ -3,11 +3,11 @@
 [include]
 	path = ~/.gitconfig.local
 
-# Work repos live under ~/costmine and belong to a second GitHub account, so
+# Work repos live under ~/src/costmine and belong to a second GitHub account, so
 # they need their own identity and SSH key. Listed after the include above so
 # these values win inside that tree; everywhere else the personal ones stand.
 # The trailing slash matters — it matches the directory's contents.
-[includeIf "gitdir:~/costmine/"]
+[includeIf "gitdir:~/src/costmine/"]
 	path = ~/.gitconfig.work
 
 [init]

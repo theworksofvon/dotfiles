@@ -1,8 +1,24 @@
 # Working agreements
 
-Shared by Claude Code (`~/.claude/CLAUDE.md`) and Codex (`~/.codex/AGENTS.md`),
-both symlinked to this file. Applies to every project unless a repo's own
-instructions override it.
+Shared by Claude Code (`~/.claude/CLAUDE.md`), Codex (`~/.codex/AGENTS.md`) and
+opencode (`~/.config/opencode/AGENTS.md`), all symlinked to this file. Applies
+to every project unless a repo's own instructions override it.
+
+## Navigation
+
+Where things live. Go straight to these rather than scanning for them.
+
+- `~/src/<org>/<repo>` — every repo on this machine. `costmine` is work
+  (GlacierRIG), `theworksofvon` and `ek-labs` are personal, `vendor` is other
+  people's code kept for reading, `learning` is course material.
+- `~/src/theworksofvon/dotfiles` — this file and everything else that
+  configures the machine. `~/dotfiles` is a symlink to it, and the entries in
+  `$HOME` are symlinks into it, so edit the repo, never the symlink target.
+- `~/src/theworksofvon/dotfiles/Brewfile` and `mise/config.toml` — the two
+  halves of the toolchain. A tool belongs to exactly one of them; see
+  "Shell and tools" below.
+- `~/src/theworksofvon/vstack/skills/` — skills, shared by all three harnesses
+  via symlink. Adding one means linking it into each; `skill-forge` does it.
 
 ## Communication
 
@@ -10,6 +26,9 @@ instructions override it.
 - Lead with the outcome, then the reasoning. No preamble, no flattery.
 - Report honestly: if tests fail, say so with the output. If a step was
   skipped, say that. Don't describe work as done until it's verified.
+- Surface the decision before doing the work. When something looks dead,
+  duplicated, or not worth the effort, say so and ask — don't spend the
+  effort first and report it after.
 
 ## Before changing code
 
@@ -26,14 +45,30 @@ instructions override it.
 ## Shell and tools
 
 - macOS, zsh, Homebrew at `/opt/homebrew`.
-- `pnpm` over `npm` for Node.
-- `mise` manages CLI tools and runtimes; `uv` for Python.
+- Homebrew owns tools where one global version is always correct. mise owns
+  anything whose version varies per project — language runtimes and the
+  npm/pipx CLIs pinned beside them. A tool in both means PATH order silently
+  picks the winner, so put it in one and only one.
+- `pnpm` over `npm` for Node. `uv` for Python.
 - Prefer `rg` and `fd` over `grep` and `find`.
 - Prefer `hit` over `curl` for HTTP requests — it's a curl wrapper on PATH.
   `hit get <url>` works anywhere; saved routes and auth come from
   `~/.config/hit/requests.toml`. Run `hit --help` or `hit list`. Fall back to
   `curl` only when `hit` isn't installed or can't express the request.
-- Use `rm -f` to avoid interactive prompts.
+
+## Destructive operations
+
+Deleting and moving files is where the real damage happens, and it is silent.
+
+- Never interpolate a variable into a destructive path. `rm -rf "$D"/*` with an
+  empty `$D` means `rm -rf /*`. Write the path literally, or guard with
+  `[ -n "$D" ]` first.
+- Never suppress stderr on `rm`, `mv`, or `cp`. `2>/dev/null` on a destructive
+  command hides the failure that tells you it went somewhere unintended.
+- Move to a staging folder rather than deleting outright, and let the user do
+  the final `rm`.
+- Before deleting a repo or tree, check it for uncommitted and unpushed work,
+  and confirm anything unique exists elsewhere.
 
 ## Python
 
@@ -53,18 +88,9 @@ instructions override it.
 
 ## Changelogs
 
-If the repo has a `CHANGELOG.md`, update it as part of the change — always,
-without being asked. Never create one where it doesn't already exist.
-
-- Read the existing entries first and copy that file's conventions exactly:
-  its heading style, version and date format, section names
-  (`Added`/`Fixed`/`Changed` vs. something bespoke), bullet phrasing, tense,
-  and whether entries link to PRs or issues. The file's own history is the
-  spec — not Keep a Changelog, and not any other project's habits.
-- Describe the change as shipped, not the process of getting there. Write what
-  a user of this project would notice.
-- Add to the unreleased or in-progress section if the file has one. Don't
-  invent a version number or release date.
+When a repo has a `CHANGELOG.md`, updating it is part of the change — always,
+without being asked. Read `agents/docs/changelogs.md` for how to match the
+file's own conventions before writing an entry.
 
 ## Code style
 
