@@ -78,11 +78,14 @@ link_live() {
 # ~/.dotfiles/bin/... — a stable symlink to wherever this repo was cloned.
 # That's what lets the repo live anywhere instead of only in ~/dotfiles.
 if [ "$DOTFILES" != "$HOME/.dotfiles" ]; then
-  if $DRY_RUN; then
-    echo "Root"; echo "  would link ~/.dotfiles -> $DOTFILES"
+  echo "Root"
+  if [ "$(readlink "$HOME/.dotfiles")" = "$DOTFILES" ]; then
+    echo "  ${dim}·${reset} ~/.dotfiles"
+  elif $DRY_RUN; then
+    echo "  would link ~/.dotfiles -> $DOTFILES"
   else
     ln -sfn "$DOTFILES" "$HOME/.dotfiles"
-    echo "Root"; echo "  ~/.dotfiles -> $DOTFILES"
+    echo "  + ~/.dotfiles -> $DOTFILES"
   fi
 fi
 
@@ -148,6 +151,7 @@ if [ -d "$HOME/.opencode" ] || [ -d "$HOME/.config/opencode" ] || command -v ope
   link agents/AGENTS.md              "$HOME/.config/opencode/AGENTS.md"
   link agents/opencode/opencode.json "$HOME/.config/opencode/opencode.json"
   link agents/opencode/plugins/notify.js "$HOME/.config/opencode/plugins/notify.js"
+  link agents/opencode/plugins/guard.js  "$HOME/.config/opencode/plugins/guard.js"
 else
   echo "  ${dim}·${reset} opencode not installed, skipped"
 fi
@@ -185,7 +189,7 @@ else
   echo "  ${dim}·${reset} active prompt -> $(basename "$(readlink "$HOME/.config/starship.toml")" .toml)"
 fi
 
-$DRY_RUN || chmod +x "$DOTFILES"/bin/*
+$DRY_RUN || chmod +x "$DOTFILES"/bin/* "$DOTFILES"/agents/hooks/*
 
 echo
 if $DRY_RUN; then

@@ -16,9 +16,9 @@ terminal afterwards.
 Clone anywhere: `install.sh` points `~/.dotfiles` at wherever this lives, and
 configs reference that. Git identity goes in `~/.gitconfig.local`, untracked.
 
-**Skills are not in this repo.** `model-orchestrator` and `pr-reviewer` live in
-[agent-workflows](https://github.com/theworksofvon/agent-workflows); run
-`pnpm skills:install` there to link them into `~/.claude` and `~/.codex`.
+**Skills are not in this repo.** They live in
+[vstack](https://github.com/theworksofvon/vstack); `install.sh` links each one
+into every installed harness when that repo is cloned beside this one.
 
 ## Commands
 
@@ -73,14 +73,16 @@ spending slower than the clock, 🟡 slightly ahead, 🔴 on pace to run out ear
 
 ## Guardrails
 
-Claude and Codex are both blocked from writing outside the project without
-approval, from destructive commands (recursive deletes, force pushes, history
-rewrites), and from reading `.env`, SSH keys, and credentials. Pre-tool hooks
-block pushes and merges to protected branches, including an implicit
-`git push` issued while sitting on `main`.
+Every harness runs the same pre-tool hook, `agents/hooks/guard`, which blocks
+pushes and merges to protected branches (including an implicit `git push`
+issued while sitting on `main`), fork bombs, and admin writes on protected
+GitHub orgs. The guard list lives in that one file, so a guard added there
+reaches Claude, Codex, and opencode at once. Claude and Codex call it from
+their hook config; opencode calls it from `plugins/guard.js`.
 
-Claude uses `ask`/`deny` rules; Codex uses its sandbox, which enforces rather
-than prompts. opencode is configured but not covered by either.
+On top of that, Claude uses `ask`/`deny` rules and Codex uses its sandbox to
+confine writes to the project and keep `.env`, SSH keys, and credentials
+unread. opencode has no equivalent layer yet.
 
 ## Things worth remembering
 
@@ -90,8 +92,9 @@ than prompts. opencode is configured but not covered by either.
 - **Supply chain** — mise refuses any release under 7 days old, long enough for
   a bad package to be caught upstream. Node projects want
   `minimum-release-age=10080` in `.npmrc` (pnpm 10.16+).
-- **Claude hooks** — every file it writes gets formatted (ruff, sqlfluff,
-  prettier; missing ones skipped). Notifications fire only when the terminal
+- **Hooks** — every file an agent writes gets formatted by
+  `agents/hooks/format-on-write` (ruff, sqlfluff, prettier; missing ones
+  skipped), in all three harnesses. Notifications fire only when the terminal
   isn't focused.
 - **git** — rerere replays how you resolved a conflict last time. Histogram
   diffs, `zdiff3` markers, rebase autosquash and autostash, push sets upstream.
@@ -104,7 +107,8 @@ than prompts. opencode is configured but not covered by either.
 setup.sh     install prerequisites, then link
 install.sh   link only
 agents/      shared AGENTS.md + per-agent config; each linked only if installed
-bin/         usage meters, guards, notifier, status-line widgets, gh routing
+agents/hooks/  guard, format-on-write, and the notifier; every harness points here
+bin/         usage meters, status-line widgets, gh routing, hit, handoff
 test/        run any file directly; no runner
 ```
 
