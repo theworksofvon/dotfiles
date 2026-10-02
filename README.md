@@ -16,9 +16,9 @@ terminal afterwards.
 Clone anywhere: `install.sh` points `~/.dotfiles` at wherever this lives, and
 configs reference that. Git identity goes in `~/.gitconfig.local`, untracked.
 
-**Skills are not in this repo.** `model-orchestrator` and `pr-reviewer` live in
-[agent-workflows](https://github.com/theworksofvon/agent-workflows); run
-`pnpm skills:install` there to link them into `~/.claude` and `~/.codex`.
+**Skills are not in this repo.** They live in
+[vstack](https://github.com/theworksofvon/vstack); `install.sh` links each one
+into every installed harness when that repo is cloned beside this one.
 
 ## Commands
 
@@ -104,7 +104,8 @@ than prompts. opencode is configured but not covered by either.
 setup.sh     install prerequisites, then link
 install.sh   link only
 agents/      shared AGENTS.md + per-agent config; each linked only if installed
-bin/         usage meters, guards, notifier, status-line widgets, gh routing
+agents/hooks/  guards and the notifier that the harness settings point at
+bin/         usage meters, status-line widgets, gh routing, hit, handoff
 test/        run any file directly; no runner
 ```
 

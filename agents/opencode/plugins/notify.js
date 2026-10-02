@@ -12,7 +12,7 @@ import { execFile } from "node:child_process";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-const NOTIFY = join(homedir(), ".dotfiles", "bin", "agent-notify");
+const NOTIFY = join(homedir(), ".dotfiles", "agents", "hooks", "agent-notify");
 
 export const NotifyPlugin = async ({ directory }) => {
   const project = directory ? directory.split("/").filter(Boolean).pop() : "opencode";

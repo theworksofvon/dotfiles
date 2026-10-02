@@ -185,7 +185,7 @@ else
   echo "  ${dim}·${reset} active prompt -> $(basename "$(readlink "$HOME/.config/starship.toml")" .toml)"
 fi
 
-$DRY_RUN || chmod +x "$DOTFILES"/bin/*
+$DRY_RUN || chmod +x "$DOTFILES"/bin/* "$DOTFILES"/agents/hooks/*
 
 echo
 if $DRY_RUN; then

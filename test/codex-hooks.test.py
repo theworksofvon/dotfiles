@@ -22,6 +22,6 @@ for name in ("config.toml", "config.example.toml"):
     handlers = bash_groups[0]["hooks"]
     assert len(handlers) == 1, f"{path}: expected one Bash hook handler"
     assert handlers[0]["type"] == "command"
-    assert handlers[0]["command"] == "$HOME/.dotfiles/bin/guard-main"
+    assert handlers[0]["command"] == "$HOME/.dotfiles/agents/hooks/guard-main"
 
 print("Codex hook config is valid")

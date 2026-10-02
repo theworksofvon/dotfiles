@@ -14,7 +14,7 @@
       {
         "hooks": [
           {
-            "command": "\"$HOME/.dotfiles/bin/agent-notify\"",
+            "command": "\"$HOME/.dotfiles/agents/hooks/agent-notify\"",
             "type": "command"
           }
         ]
@@ -35,15 +35,15 @@
       {
         "hooks": [
           {
-            "command": "\"$HOME/.dotfiles/bin/guard-main\"",
+            "command": "\"$HOME/.dotfiles/agents/hooks/guard-main\"",
             "type": "command"
           },
           {
-            "command": "\"$HOME/.dotfiles/bin/guard-shell-bomb\"",
+            "command": "\"$HOME/.dotfiles/agents/hooks/guard-shell-bomb\"",
             "type": "command"
           },
           {
-            "command": "\"$HOME/.dotfiles/bin/guard-org-writes\"",
+            "command": "\"$HOME/.dotfiles/agents/hooks/guard-org-writes\"",
             "type": "command"
           }
         ],
@@ -52,7 +52,7 @@
       {
         "hooks": [
           {
-            "command": "\"$HOME/.dotfiles/bin/guard-org-writes\"",
+            "command": "\"$HOME/.dotfiles/agents/hooks/guard-org-writes\"",
             "type": "command"
           }
         ],
@@ -63,7 +63,7 @@
       {
         "hooks": [
           {
-            "command": "\"$HOME/.dotfiles/bin/agent-notify\"",
+            "command": "\"$HOME/.dotfiles/agents/hooks/agent-notify\"",
             "type": "command"
           }
         ]

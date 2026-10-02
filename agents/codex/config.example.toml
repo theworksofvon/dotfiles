@@ -161,5 +161,5 @@ matcher = "^Bash$"
 
 [[hooks.PreToolUse.hooks]]
 type = "command"
-command = "$HOME/.dotfiles/bin/guard-main"
+command = "$HOME/.dotfiles/agents/hooks/guard-main"
 timeout = 10
