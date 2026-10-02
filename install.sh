@@ -78,11 +78,14 @@ link_live() {
 # ~/.dotfiles/bin/... — a stable symlink to wherever this repo was cloned.
 # That's what lets the repo live anywhere instead of only in ~/dotfiles.
 if [ "$DOTFILES" != "$HOME/.dotfiles" ]; then
-  if $DRY_RUN; then
-    echo "Root"; echo "  would link ~/.dotfiles -> $DOTFILES"
+  echo "Root"
+  if [ "$(readlink "$HOME/.dotfiles")" = "$DOTFILES" ]; then
+    echo "  ${dim}·${reset} ~/.dotfiles"
+  elif $DRY_RUN; then
+    echo "  would link ~/.dotfiles -> $DOTFILES"
   else
     ln -sfn "$DOTFILES" "$HOME/.dotfiles"
-    echo "Root"; echo "  ~/.dotfiles -> $DOTFILES"
+    echo "  + ~/.dotfiles -> $DOTFILES"
   fi
 fi
 
