@@ -151,6 +151,7 @@ if [ -d "$HOME/.opencode" ] || [ -d "$HOME/.config/opencode" ] || command -v ope
   link agents/AGENTS.md              "$HOME/.config/opencode/AGENTS.md"
   link agents/opencode/opencode.json "$HOME/.config/opencode/opencode.json"
   link agents/opencode/plugins/notify.js "$HOME/.config/opencode/plugins/notify.js"
+  link agents/opencode/plugins/guard.js  "$HOME/.config/opencode/plugins/guard.js"
 else
   echo "  ${dim}·${reset} opencode not installed, skipped"
 fi

@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# format-on-write — run the file's formatter after an agent edits it.
+#
+# A post-tool hook shared by every harness. Reads the hook payload on stdin and
+# formats the file it names; a missing formatter or a payload without a path
+# is a no-op, never an error, so this can't fail an edit.
+#
+#   echo '{"tool_input":{"file_path":"x.py"}}' | format-on-write
+
+# Hooks run without the interactive shell's PATH, so the formatters have to be
+# found by hand.
+export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+# Claude and Codex send file_path; opencode's edit and write tools send filePath.
+file=$(jq -r '.tool_input.file_path // .tool_input.filePath // empty' 2>/dev/null)
+[ -n "$file" ] && [ -f "$file" ] || exit 0
+
+case "$file" in
+  *.py)   command -v ruff >/dev/null && { ruff check --fix "$file"; ruff format "$file"; } ;;
+  *.rs)   command -v rustfmt >/dev/null && rustfmt --edition 2021 "$file" ;;
+  *.c|*.cc|*.cpp|*.cxx|*.h|*.hh|*.hpp)
+          command -v clang-format >/dev/null && clang-format -i "$file" ;;
+  *.sql)  command -v sqlfluff >/dev/null && sqlfluff fix --force "$file" ;;
+  *.ts|*.tsx|*.js|*.jsx|*.mjs|*.cjs|*.json|*.jsonc|*.css|*.scss|*.html|*.md|*.yaml|*.yml)
+          command -v prettier >/dev/null && prettier --write --ignore-unknown "$file" ;;
+esac
+exit 0

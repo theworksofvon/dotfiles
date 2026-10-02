@@ -110,7 +110,7 @@ status_line = [
 
 
 # ── protected branches ────────────────────────────
-# guard-main blocks pushes and merges that would land on main. A static rule
+# guard runs every shared guard (push-to-main, fork bomb, org writes). A static rule
 # can't do this: `git push` while checked out on main names no branch, so the
 # hook has to inspect the repo state before the command runs.
 
@@ -119,5 +119,14 @@ matcher = "^Bash$"
 
 [[hooks.PreToolUse.hooks]]
 type = "command"
-command = "$HOME/.dotfiles/agents/hooks/guard-main"
+command = "$HOME/.dotfiles/agents/hooks/guard"
 timeout = 10
+
+# Format whatever the agent just edited, same script as the other harnesses.
+[[hooks.PostToolUse]]
+matcher = "^(Write|Edit|MultiEdit|apply_patch)$"
+
+[[hooks.PostToolUse.hooks]]
+type = "command"
+command = "$HOME/.dotfiles/agents/hooks/format-on-write"
+timeout = 30
