@@ -1,7 +1,7 @@
 # Reference copy. The live file is gitignored because Codex rewrites it
 # with marketplace timestamps and machine-local runtime paths.
 notify = ["$HOME/.codex/computer-use/Codex Computer Use.app/Contents/SharedSupport/SkyComputerUseClient.app/Contents/MacOS/SkyComputerUseClient", "turn-ended"]
-model = "gpt-5.6-sol"
+model = "gpt-6-luna"
 model_reasoning_effort = "high"
 service_tier = "default"
 commit_attribution = ""
