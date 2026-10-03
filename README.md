@@ -13,6 +13,10 @@ Installs what's missing (Homebrew, starship, mise, jq, Ghostty, the Nerd Font,
 oh-my-zsh), then symlinks the configs. Re-running only fills gaps. Restart the
 terminal afterwards.
 
+`just check` runs lint, the tests, and `just doctor`, which checks that the
+links, hooks, configs, and both toolchain manifests on this machine match the
+repo. Run it after changing anything here; nothing in it modifies the machine.
+
 Clone anywhere: `install.sh` points `~/.dotfiles` at wherever this lives, and
 configs reference that. Git identity goes in `~/.gitconfig.local`, untracked.
 
@@ -43,11 +47,11 @@ Work and personal are two separate logins on every tool, and all three pick the
 same way — by directory. Under `~/src/costmine` you are work; everywhere else you
 are personal. Nothing to switch, and nothing to remember before a push.
 
-| tool     | mechanism                                                           |
-| -------- | ------------------------------------------------------------------- |
+| tool     | mechanism                                                               |
+| -------- | ----------------------------------------------------------------------- |
 | `git`    | `includeIf "gitdir:~/src/costmine/"` → `~/.gitconfig.work`, own SSH key |
-| `gh`     | `bin/gh` picks the matching account's token per invocation          |
-| `claude` | `cswap` gives each account its own `CLAUDE_CONFIG_DIR`              |
+| `gh`     | `bin/gh` picks the matching account's token per invocation              |
+| `claude` | `cswap` gives each account its own `CLAUDE_CONFIG_DIR`                  |
 
 `bin/gh` is a shim on PATH rather than a shell function, so a Makefile, a git
 alias, or an MCP server gets the same routing an interactive shell does. It has
@@ -106,10 +110,12 @@ unread. opencode has no equivalent layer yet.
 ```
 setup.sh     install prerequisites, then link
 install.sh   link only
+doctor.sh    read-only: is the machine in the state the repo describes?
+justfile     `just check` = lint + test + doctor
 agents/      shared AGENTS.md + per-agent config; each linked only if installed
 agents/hooks/  guard, format-on-write, and the notifier; every harness points here
 bin/         usage meters, status-line widgets, gh routing, hit, handoff
-test/        run any file directly; no runner
+test/        shell tests; `just test` runs them and bin/*.test.mjs
 ```
 
 Configs are symlinked, so editing a live file edits this repo — commit and push,

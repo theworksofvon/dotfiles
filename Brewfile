@@ -31,6 +31,7 @@ brew "git-delta"                 # renders git diffs
 brew "git-lfs"                   # gitconfig registers its filter unconditionally
 brew "gh"                        # GitHub CLI; git-pr, bin/gh and auth depend on it
 brew "neovim"
+brew "shellcheck"                # `just lint`
 brew "clang-format"              # C++ formatting for the agent hook
 brew "mise"                      # runtimes and CLI tools — the other half of this file
 brew "jq"                        # the formatter hook parses hook payloads with it;

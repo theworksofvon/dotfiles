@@ -1,4 +1,4 @@
-// Tests for hit. Run: node --test bin/
+// Tests for hit. Run: just test (or node --test bin/hit.test.mjs)
 //
 // Unit tests import the pieces directly (the TOML parser, arg grammar, var
 // resolution, curl builder). A live block boots a throwaway http server and

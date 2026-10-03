@@ -18,7 +18,7 @@ if [ -z "${DOTFILES:-}" ]; then
   DOTFILES="$(cd "$(dirname "$self")/.." && pwd)"
 fi
 SOURCE="$DOTFILES/agents/AGENTS.md"
-MODE=link
+MODE="link"
 
 for arg in "$@"; do
   case "$arg" in
