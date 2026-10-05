@@ -48,6 +48,7 @@ brew "yt-dlp"                    # video downloader
 
 # ── cloud and infra ───────────────────────────────
 brew "awscli"                    # AWS CLI; the RDS-to-Docker pipeline shells out to it
+brew "azure-cli"                 # az; the azure-devops extension reads Costmine pipelines
 brew "tailscale"                 # CLI half; the cask below is the menu-bar app
 
 # ── apps ──────────────────────────────────────────
