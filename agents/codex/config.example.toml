@@ -83,49 +83,7 @@ ambient-suggestions-enabled = true
 followUpQueueMode = "queue"
 dock-icon-preference = "app-default"
 
-[projects."$HOME/dev/trace-service"]
-trust_level = "trusted"
-
-[projects."$HOME/dev/pulse"]
-trust_level = "trusted"
-
-[projects."$HOME/Documents/Codex/2026-07-08/there-s-a-plan-in-the"]
-trust_level = "trusted"
-
-[projects."$HOME/dev/pluto-predicts"]
-trust_level = "trusted"
-
-[projects."$HOME/Documents/Codex/2026-07-08/i"]
-trust_level = "trusted"
-
 [projects."$HOME/Documents/scripts"]
-trust_level = "trusted"
-
-[projects."$HOME/dev/scripts"]
-trust_level = "trusted"
-
-[projects."$HOME/dev/agent-workflows"]
-trust_level = "trusted"
-
-[projects."$HOME/dev/skills"]
-trust_level = "trusted"
-
-[projects."$HOME/dev/theworksofvon.github.io"]
-trust_level = "trusted"
-
-[projects."$HOME/dev/curiosity-archive"]
-trust_level = "trusted"
-
-[projects."$HOME/dev/agent-workflows/state/repos/EK-LABS-LLC"]
-trust_level = "trusted"
-
-[projects."$HOME/dev/yt-mp3-mp4-converter"]
-trust_level = "trusted"
-
-[projects."$HOME/dev/model-pdf-handling"]
-trust_level = "trusted"
-
-[projects."$HOME/dev/pulse/trace-service"]
 trust_level = "trusted"
 
 [tui.model_availability_nux]
@@ -152,7 +110,7 @@ status_line = [
 
 
 # ── protected branches ────────────────────────────
-# guard-main blocks pushes and merges that would land on main. A static rule
+# guard runs every shared guard (push-to-main, fork bomb, org writes). A static rule
 # can't do this: `git push` while checked out on main names no branch, so the
 # hook has to inspect the repo state before the command runs.
 
@@ -161,5 +119,14 @@ matcher = "^Bash$"
 
 [[hooks.PreToolUse.hooks]]
 type = "command"
-command = "$HOME/.dotfiles/bin/guard-main"
+command = "$HOME/.dotfiles/agents/hooks/guard"
 timeout = 10
+
+# Format whatever the agent just edited, same script as the other harnesses.
+[[hooks.PostToolUse]]
+matcher = "^(Write|Edit|MultiEdit|apply_patch)$"
+
+[[hooks.PostToolUse.hooks]]
+type = "command"
+command = "$HOME/.dotfiles/agents/hooks/format-on-write"
+timeout = 30

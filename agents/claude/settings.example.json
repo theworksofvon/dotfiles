@@ -14,7 +14,7 @@
       {
         "hooks": [
           {
-            "command": "\"$HOME/.dotfiles/bin/agent-notify\"",
+            "command": "\"$HOME/.dotfiles/agents/hooks/agent-notify\"",
             "type": "command"
           }
         ]
@@ -22,48 +22,31 @@
     ],
     "PostToolUse": [
       {
+        "matcher": "Write|Edit|MultiEdit",
         "hooks": [
           {
-            "command": "export PATH=\"$HOME/.local/share/mise/shims:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"; file=$(jq -r '.tool_input.file_path' /dev/stdin); [ -f \"$file\" ] || exit 0; case \"$file\" in *.py) command -v ruff >/dev/null && { ruff check --fix \"$file\"; ruff format \"$file\"; } ;; *.rs) command -v rustfmt >/dev/null && rustfmt --edition 2021 \"$file\" ;; *.c|*.cc|*.cpp|*.cxx|*.h|*.hh|*.hpp) command -v clang-format >/dev/null && clang-format -i \"$file\" ;; *.sql) command -v sqlfluff >/dev/null && sqlfluff fix --force \"$file\" ;; *.ts|*.tsx|*.js|*.jsx|*.mjs|*.cjs|*.json|*.jsonc|*.css|*.scss|*.html|*.md|*.yaml|*.yml) command -v prettier >/dev/null && prettier --write --ignore-unknown \"$file\" ;; esac; exit 0",
-            "type": "command"
+            "type": "command",
+            "command": "\"$HOME/.dotfiles/agents/hooks/format-on-write\""
           }
-        ],
-        "matcher": "Write|Edit|MultiEdit"
+        ]
       }
     ],
     "PreToolUse": [
       {
+        "matcher": "Bash|mcp__.*[Gg]ithub.*",
         "hooks": [
           {
-            "command": "\"$HOME/.dotfiles/bin/guard-main\"",
-            "type": "command"
-          },
-          {
-            "command": "\"$HOME/.dotfiles/bin/guard-shell-bomb\"",
-            "type": "command"
-          },
-          {
-            "command": "\"$HOME/.dotfiles/bin/guard-org-writes\"",
-            "type": "command"
+            "type": "command",
+            "command": "\"$HOME/.dotfiles/agents/hooks/guard\""
           }
-        ],
-        "matcher": "Bash"
-      },
-      {
-        "hooks": [
-          {
-            "command": "\"$HOME/.dotfiles/bin/guard-org-writes\"",
-            "type": "command"
-          }
-        ],
-        "matcher": "mcp__.*[Gg]ithub.*"
+        ]
       }
     ],
     "Stop": [
       {
         "hooks": [
           {
-            "command": "\"$HOME/.dotfiles/bin/agent-notify\"",
+            "command": "\"$HOME/.dotfiles/agents/hooks/agent-notify\"",
             "type": "command"
           }
         ]
