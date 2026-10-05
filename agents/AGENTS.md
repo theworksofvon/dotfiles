@@ -30,6 +30,49 @@ Where things live. Go straight to these rather than scanning for them.
   duplicated, or not worth the effort, say so and ask — don't spend the
   effort first and report it after.
 
+## Writing standard
+
+Write every reply in ASD-STE100 Simplified Technical English, held to its
+structure and grammar rules below. Code, commands, quoted text, commit
+messages, and the files you write keep their own conventions. The strict
+form, with the approved dictionary, is in
+`~/src/theworksofvon/vstack/skills/explain/STE100.md`.
+
+Structure:
+
+- One topic per paragraph, topic sentence first, six sentences at most.
+- Twenty words per sentence at most in instructions, twenty-five in
+  description.
+- One instruction per sentence. Two only when they happen at the same time.
+- Active voice, actor first: "the scheduler moves the task".
+- A vertical list for a sequence of more than two steps.
+- Numerals for numbers.
+- A warning comes before the step it protects, as a command.
+- Define a term in one short sentence the first time it appears, then use
+  that exact term every time. One name per thing.
+- Literal language: replace an idiom or metaphor with the fact it stands
+  for.
+
+Grammar:
+
+- Verb forms: infinitive, imperative, simple present, simple past, future
+  with "will", and the past participle as an adjective ("the closed valve").
+- Rewrite an -ing verb or noun as a clause: "when you start the service",
+  "the process that runs".
+- Simple past for finished actions: "was sent", not "has been sent".
+- Negation in full: "do not", "is not". Write every word out, with no
+  contractions.
+- Keep articles, demonstratives, and "that" in relative clauses: "the file
+  that the job writes".
+- Three nouns in a row at most: "the protocol that rebalances a consumer
+  group".
+- "Can" means possible, "must" means required, "will" is the future. Use
+  these three in place of "may" and "might".
+
+Before you send a reply, read it once for each check: a sentence over the
+word cap, an -ing verb or noun, a passive construction, and a term used two
+ways. Fix every hit.
+
 ## Before changing code
 
 - Read the surrounding code first and match its conventions — naming, comment
