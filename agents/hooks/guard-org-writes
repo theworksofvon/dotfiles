@@ -40,6 +40,12 @@ function mentionsProtectedOrg(text) {
  * they'd land on a protected branch.
  */
 function shellWrite(command) {
+  // Review conversation on a PR or issue is day-to-day work, and an inline review
+  // reply has no `gh pr` subcommand, so these API paths are allowed. A merge
+  // (`pulls/<n>/merge`) is not on the list and stays gated.
+  if (/\bgh\s+api\b[^|;&]*\brepos\/[^/\s]+\/[^/\s]+\/(pulls|issues)\/\d+\/(comments(\/\d+\/replies)?|reviews)\b/i.test(command)) {
+    return null;
+  }
   const patterns = [
     [/\bgh\s+repo\s+(create|delete|rename|transfer|archive|edit)\b/i, "changes a repository"],
     [/\bgh\s+api\s+[^|;&]*(-X|--method)\s+(POST|PATCH|PUT|DELETE)\b/i, "sends a write request to the API"],
