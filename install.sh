@@ -151,7 +151,7 @@ if [ -d "$HOME/.opencode" ] || [ -d "$HOME/.config/opencode" ] || command -v ope
   # no per-project step.
   link agents/AGENTS.md              "$HOME/.config/opencode/AGENTS.md"
   link agents/opencode/opencode.json "$HOME/.config/opencode/opencode.json"
-  link agents/opencode/plugins/notify.js "$HOME/.config/opencode/plugins/notify.js"
+  # notify.js is parked with agent-notify until notifications do something useful.
   link agents/opencode/plugins/guard.js  "$HOME/.config/opencode/plugins/guard.js"
 else
   echo "  ${dim}·${reset} opencode not installed, skipped"
@@ -159,9 +159,11 @@ fi
 
 # Skills live in their own repo (vstack) and share one SKILL.md format across
 # all three harnesses, so they link per-skill into whichever are installed.
+# opencode reads ~/.claude/skills itself; linking into its own skills dir too
+# would register every skill twice.
 VSTACK="$HOME/src/theworksofvon/vstack"
 if [ -d "$VSTACK/skills" ]; then
-  for dst in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.config/opencode/skills"; do
+  for dst in "$HOME/.claude/skills" "$HOME/.codex/skills"; do
     [ -d "$(dirname "$dst")" ] || continue
     mkdir -p "$dst"
     for skill in "$VSTACK"/skills/*/; do
