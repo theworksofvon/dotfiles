@@ -10,16 +10,6 @@
     "superpowers@claude-plugins-official": true
   },
   "hooks": {
-    "Notification": [
-      {
-        "hooks": [
-          {
-            "command": "\"$HOME/.dotfiles/agents/hooks/agent-notify\"",
-            "type": "command"
-          }
-        ]
-      }
-    ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit|MultiEdit",
@@ -33,21 +23,11 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash|mcp__.*[Gg]ithub.*",
+        "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit|mcp__.*[Gg]ithub.*",
         "hooks": [
           {
             "type": "command",
             "command": "\"$HOME/.dotfiles/agents/hooks/guard\""
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "command": "\"$HOME/.dotfiles/agents/hooks/agent-notify\"",
-            "type": "command"
           }
         ]
       }

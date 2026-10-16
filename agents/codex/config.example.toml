@@ -110,12 +110,13 @@ status_line = [
 
 
 # ── protected branches ────────────────────────────
-# guard runs every shared guard (push-to-main, fork bomb, org writes). A static rule
+# guard runs every shared guard (push-to-main, fork bomb, org writes, rules.json),
+# and sees apply_patch so it can keep edits off rules.json. A static rule
 # can't do this: `git push` while checked out on main names no branch, so the
 # hook has to inspect the repo state before the command runs.
 
 [[hooks.PreToolUse]]
-matcher = "^Bash$"
+matcher = "^(Bash|apply_patch)$"
 
 [[hooks.PreToolUse.hooks]]
 type = "command"

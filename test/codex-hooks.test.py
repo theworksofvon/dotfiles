@@ -16,8 +16,8 @@ for name in ("config.toml", "config.example.toml"):
     )
 
     groups = config["hooks"]["PreToolUse"]
-    bash_groups = [group for group in groups if group["matcher"] == "^Bash$"]
-    assert len(bash_groups) == 1, f"{path}: expected one exact Bash hook group"
+    bash_groups = [group for group in groups if group["matcher"] == "^(Bash|apply_patch)$"]
+    assert len(bash_groups) == 1, f"{path}: expected one Bash and apply_patch hook group"
 
     handlers = bash_groups[0]["hooks"]
     assert len(handlers) == 1, f"{path}: expected one Bash hook handler"

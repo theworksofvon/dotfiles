@@ -49,11 +49,12 @@ for hook in $hooks; do
   fi
 done
 for f in agents/hooks/*; do
+  case "$f" in *.json) continue ;; esac  # rules.json is data, not a hook
   [ -x "$f" ] || bad "$f is not executable; install.sh should have chmod'd it"
 done
 
 echo "Configs"
-for f in agents/claude/settings.example.json agents/opencode/opencode.json \
+for f in agents/claude/settings.example.json agents/opencode/opencode.json agents/hooks/rules.json \
          config/ccstatusline/settings.json config/claude-account/accounts.example.json; do
   if jq -e . "$f" >/dev/null 2>&1; then ok "$f"; else bad "$f is not valid JSON"; fi
 done

@@ -5,7 +5,8 @@
  * Claude Code, Codex, and opencode each have their own hook config, and a
  * guard listed in one is easy to forget in the others. So each config points
  * here and nowhere else, and this file decides which guards a tool call gets.
- * Adding a guard is one edit to ROUTES.
+ * Adding a guard is one edit to ROUTES. What a rule-driven guard allows lives
+ * in rules.json, not here.
  *
  * Reads the Claude-shaped hook payload on stdin ({tool_name, tool_input, cwd})
  * and forwards it unchanged to each guard that applies. The first guard to
@@ -25,10 +26,13 @@ const HOOKS = dirname(fileURLToPath(import.meta.url));
 // Shell tools under every name the three harnesses use for them.
 const SHELL = /^(Bash|bash|shell|local_shell|exec_command)$/;
 const GITHUB_MCP = /github/i;
+// File edit tools; opencode's are renamed to these before they get here.
+const EDIT = /^(Edit|Write|MultiEdit|NotebookEdit|apply_patch)$/;
 
 const ROUTES = [
-  [SHELL, ["guard-main", "guard-shell-bomb", "guard-org-writes"]],
+  [SHELL, ["guard-main", "guard-shell-bomb", "guard-org-writes", "guard-rules"]],
   [GITHUB_MCP, ["guard-org-writes"]],
+  [EDIT, ["guard-rules"]],
 ];
 
 let raw = "";

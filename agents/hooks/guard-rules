@@ -1,0 +1,310 @@
+#!/usr/bin/env node
+/**
+ * guard-rules — allow or block commands from the lists in rules.json.
+ *
+ * Each section of rules.json covers one program. A shell command is split into
+ * the simple commands it chains, and each one that runs a covered program is
+ * checked against that section, in this order:
+ *
+ *   1. a `block` rule matches                          → blocked
+ *   2. an `allow` rule matches and its `when` holds    → allowed
+ *   3. neither                                         → the section's `default`
+ *
+ * Block wins, so a broad allow rule never lets a blocked command through, and
+ * changing what agents may run is one edit: move the rule to the other list.
+ *
+ * rules.json itself is locked against agents — an agent that could edit it
+ * could allow itself anything — so writes to it are blocked, from the edit
+ * tools and from the shell. `rules-lock off` opens it until a deadline kept in
+ * a state file. Agents can never run rules-lock or write that state file, so
+ * only the user can open the lock.
+ *
+ * Out of scope, as with the other guards: a covered program run from a script
+ * file, through xargs, or under a name built from variables.
+ *
+ * Reads the hook payload as JSON on stdin; exits 2 to block.
+ *
+ *   echo '{"tool_name":"Bash","tool_input":{"command":"auth0 apis list"}}' | guard-rules
+ *   guard-rules --test 'auth0 apis delete abc'
+ */
+
+import { readFileSync, realpathSync } from "node:fs";
+import { homedir } from "node:os";
+import { basename, dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const HOOKS = dirname(fileURLToPath(import.meta.url));
+const RULES_PATH = join(HOOKS, "rules.json");
+const UNLOCK_PATH = join(homedir(), ".config", "guard", "rules-unlocked");
+
+const SHELL = /^(Bash|bash|shell|local_shell|exec_command)$/;
+
+// Programs that only read their file arguments. A shell command that names a
+// locked file with anything else (sed -i, mv, cp, tee, git checkout, …) is a
+// write. git is judged by its subcommand.
+const READERS = new Set(["cat", "head", "tail", "less", "bat", "rg", "grep", "jq", "wc", "diff", "file", "stat", "ls"]);
+const GIT_READS = new Set(["diff", "log", "show", "status", "add", "blame"]);
+
+// Prefixes that run the next word as the program.
+const WRAPPERS = new Set(["command", "exec", "env", "sudo", "time", "nohup", "nice"]);
+
+/**
+ * Values a rule's `when` can test, computed from the simple command's words.
+ * A `when` key with no entry here is never true, so a typo blocks rather than
+ * allows.
+ */
+const CONDITIONS = {
+  // --tenant on the command, else the CLI's default tenant.
+  auth0_tenant(words) {
+    for (let i = 0; i < words.length; i++) {
+      if (words[i] === "--tenant") return words[i + 1];
+      if (words[i].startsWith("--tenant=")) return words[i].slice("--tenant=".length);
+    }
+    try {
+      const config = JSON.parse(readFileSync(join(homedir(), ".config", "auth0", "config.json"), "utf8"));
+      return config.default_tenant;
+    } catch {
+      return undefined;
+    }
+  },
+};
+
+function check(payload) {
+  const input = payload.tool_input ?? {};
+  const cwd = payload.cwd || process.cwd();
+  const locked = lockedFiles();
+
+  if (!SHELL.test(payload.tool_name ?? "")) {
+    const hit = editedPaths(input).map((p) => lockedFile(p, cwd, locked)).find(Boolean);
+    return hit ? `edits ${hit.name}, which ${hit.why}` : null;
+  }
+
+  let command = input.command ?? input.cmd ?? payload.command ?? "";
+  if (Array.isArray(command)) command = command.join(" ");
+  if (!command) return null;
+
+  // `status` only reads, so an agent may check whether the lock is open.
+  const lockChange = (words) => words[0] === "rules-lock" && !(words.length === 1 || (words.length === 2 && words[1] === "status"));
+  if (simpleCommands(command).some(lockChange)) {
+    return "changes the rules-lock, which only the user does";
+  }
+  const hit = shellWrite(command, cwd, locked);
+  if (hit) return `writes to ${hit.name}, which ${hit.why}`;
+
+  let sections;
+  try {
+    sections = Object.entries(JSON.parse(readFileSync(RULES_PATH, "utf8")));
+  } catch (error) {
+    return `cannot apply rules.json (${error.message}); the user has to fix it`;
+  }
+
+  for (const words of simpleCommands(command)) {
+    const text = words.join(" ");
+    for (const [name, section] of sections) {
+      if (words[0] !== section.program) continue;
+      const reason = judge(section, words, text);
+      if (reason) return `${reason} [rules.json: ${name}]`;
+    }
+  }
+  return null;
+}
+
+/** Returns why the simple command is blocked, or null when it may run. */
+function judge(section, words, text) {
+  const matches = (rule) => new RegExp(rule.match, "i").test(text);
+
+  const blocked = (section.block ?? []).find(matches);
+  if (blocked) return `\`${text}\` is blocked: ${blocked.why}`;
+
+  const allowed = (section.allow ?? []).find(
+    (rule) => matches(rule) && whenHolds(rule.when, words),
+  );
+  if (allowed || section.default === "allow") return null;
+
+  return `\`${text}\` is not on the allow list`;
+}
+
+function whenHolds(when, words) {
+  if (!when) return true;
+  return Object.entries(when).every(([key, want]) => {
+    const condition = CONDITIONS[key];
+    return condition !== undefined && condition(words) === want;
+  });
+}
+
+// ── shell parsing ─────────────────────────────────
+
+/**
+ * Splits a command line into simple commands, each a list of words with
+ * quotes removed and the program reduced to its basename. Operators, pipes,
+ * subshells and command substitution all start a new simple command, and
+ * `bash -c '…'` is split again from its argument.
+ */
+function simpleCommands(line, depth = 0) {
+  const out = [];
+  for (let words of splitWords(line)) {
+    while (words.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(words[0])) words = words.slice(1);
+    while (words.length && WRAPPERS.has(words[0])) {
+      words = words.slice(1);
+      while (words.length && /^(-|[A-Za-z_][A-Za-z0-9_]*=)/.test(words[0])) words = words.slice(1);
+    }
+    if (!words.length) continue;
+    words[0] = basename(words[0]);
+    out.push(words);
+
+    const inner = words.indexOf("-c");
+    if (depth < 3 && ["bash", "sh", "zsh", "eval"].includes(words[0])) {
+      const script = words[0] === "eval" ? words.slice(1).join(" ") : words[inner + 1];
+      if (script && (words[0] === "eval" || inner > 0)) out.push(...simpleCommands(script, depth + 1));
+    }
+  }
+  return out;
+}
+
+function splitWords(line) {
+  const commands = [[]];
+  let word = null;
+  let quote = null;
+  const end = () => {
+    if (word !== null) commands.at(-1).push(word);
+    word = null;
+  };
+  const next = () => {
+    end();
+    if (commands.at(-1).length) commands.push([]);
+  };
+
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quote) {
+      if (c === quote) quote = null;
+      else if (c === "\\" && quote === '"' && i + 1 < line.length) word += line[++i];
+      else word += c;
+    } else if (c === "'" || c === '"') {
+      quote = c;
+      word ??= "";
+    } else if (c === "\\" && i + 1 < line.length) {
+      word = (word ?? "") + line[++i];
+    } else if (/\s/.test(c) && c !== "\n") {
+      end();
+    } else if (";&|\n()`".includes(c) || (c === "$" && line[i + 1] === "(")) {
+      if (c === "$") i++;
+      next();
+    } else {
+      word = (word ?? "") + c;
+    }
+  }
+  end();
+  return commands.filter((words) => words.length);
+}
+
+// ── the lock on rules.json ────────────────────────
+
+/**
+ * Files agents may not write. The unlock state file is always on the list, so
+ * the lock cannot be opened from inside a session; rules.json is on it until
+ * `rules-lock off` sets a deadline in the future.
+ */
+function lockedFiles() {
+  const files = [{ path: UNLOCK_PATH, name: "the rules-lock state file", why: "only rules-lock writes" }];
+  let until = 0;
+  try {
+    until = Number(readFileSync(UNLOCK_PATH, "utf8").trim()) || 0;
+  } catch {}
+  if (Date.now() / 1000 >= until) {
+    files.push({ path: RULES_PATH, name: "rules.json", why: "is locked (the user runs `rules-lock off` to open it)" });
+  }
+  return files.map((f) => ({ ...f, real: real(f.path) }));
+}
+
+function lockedFile(path, cwd, locked) {
+  if (!locked.some((f) => basename(f.path) === basename(path))) return undefined;
+  const target = real(resolve(cwd, expandHome(path)));
+  return locked.find((f) => f.real === target);
+}
+
+function shellWrite(command, cwd, locked) {
+  for (const words of simpleCommands(command)) {
+    // Follow `cd` so `cd agents/hooks && sed -i … rules.json` resolves.
+    if (words[0] === "cd") {
+      cwd = resolve(cwd, expandHome(words[1] ?? "~"));
+      continue;
+    }
+    const hit = words.slice(1).map((w) => lockedFile(w.replace(/^>+\|?/, ""), cwd, locked)).find(Boolean);
+    if (!hit) continue;
+    if (words.some((w) => w.startsWith(">"))) return hit;
+    if (words[0] === "git") {
+      if (!GIT_READS.has(words.find((w, i) => i > 0 && !w.startsWith("-")))) return hit;
+    } else if (!READERS.has(words[0])) {
+      return hit;
+    }
+  }
+  // A redirect with a descriptor (`2>rules.json`) stays inside one word, so
+  // check the raw text too.
+  for (const m of command.matchAll(/>\|?\s*([^\s;&|)]+)/g)) {
+    const hit = lockedFile(m[1].replace(/^["']|["']$/g, ""), cwd, locked);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+// Claude names the file in file_path or notebook_path, opencode in filePath
+// or path; Codex's apply_patch and opencode's patch list theirs in the text.
+function editedPaths(input) {
+  const paths = [input.file_path, input.filePath, input.path, input.notebook_path];
+  for (const text of [input.command, input.patchText, input.patch, input.input]) {
+    if (typeof text !== "string") continue;
+    for (const m of text.matchAll(/^\*\*\* (?:Add|Update|Delete) File: (.+)$|^\*\*\* Move to: (.+)$/gm)) {
+      paths.push((m[1] ?? m[2]).trim());
+    }
+  }
+  return paths.filter((p) => typeof p === "string" && p);
+}
+
+function expandHome(path) {
+  return path.replace(/^(~|\$HOME|\$\{HOME\})(?=\/|$)/, homedir());
+}
+
+// Follows symlinks (~/.dotfiles is one), including for a file that does not
+// exist yet, by resolving its directory instead.
+function real(path) {
+  try {
+    return realpathSync(path);
+  } catch {
+    try {
+      return join(realpathSync(dirname(path)), basename(path));
+    } catch {
+      return path;
+    }
+  }
+}
+
+// ── entry ─────────────────────────────────────────
+
+const argv = process.argv.slice(2);
+let payload;
+const testIdx = argv.indexOf("--test");
+if (testIdx >= 0) {
+  payload = { tool_name: "Bash", tool_input: { command: argv[testIdx + 1] || "" } };
+} else {
+  try {
+    payload = JSON.parse(readFileSync(0, "utf8"));
+  } catch {
+    process.exit(0); // unparseable payload is not grounds to block
+  }
+}
+
+const reason = check(payload);
+if (!reason) process.exit(0);
+
+const next = reason.includes("[rules.json:")
+  ? `To change this, the user moves the rule between the allow and block ` +
+    `lists in ${RULES_PATH}. Otherwise, give the user the exact command to ` +
+    `run themselves.`
+  : `Tell the user the change you want, and that \`rules-lock off\` lets you ` +
+    `make it. Do not try another way around the lock.`;
+
+// Exit 2 is the blocking convention: the message goes back to the model so it
+// explains itself rather than silently retrying.
+process.stderr.write(`Blocked: ${reason}. ${next}\n`);
+process.exit(2);
