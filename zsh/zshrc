@@ -1,6 +1,12 @@
 # If you come from bash you might have to change your $PATH.
 # export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:$PATH
 
+# ~/.zprofile and brew shellenv both prepend the Homebrew dirs, and the PATH
+# exports below repeat ~/.local/bin. Keep only the first copy of each, which is
+# the one that wins. -U only acts when the `path` array is assigned, not on
+# `export PATH=...`, so the `path=($path)` before mise activates re-applies it.
+typeset -U path
+
 # Path to your Oh My Zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
 
@@ -110,9 +116,9 @@ plugins=(git)
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
-# PATH for ~/.dotfiles/bin is set after the tool inits below, not here — brew
-# shellenv and mise both prepend, so anything exported at this point loses to
-# them. bin/gh has to win over the Homebrew gh to do its routing.
+# PATH for ~/.dotfiles/bin is set after brew shellenv below, not here — brew
+# prepends, so anything exported at this point loses to it. bin/gh has to win
+# over the Homebrew gh to do its routing.
 
 # Tool init snippets (brew shellenv, mise, starship, zoxide, fzf) each cost a
 # subprocess spawn — together about 100ms on every shell. Their output only
@@ -144,17 +150,25 @@ unset _brew
 # install used to sit ahead of the shims on PATH, so `bun` bypassed mise and
 # ignored any per-project pin — one owner instead.
 
-# mise — manages CLI tools (prettier, sqlfluff, cswap) and the Node runtime.
-_init_cache mise mise mise activate zsh
-
-# Last of the PATH prepends, so the shims here outrank the tools they wrap —
-# bin/gh has to shadow the Homebrew gh. Nothing else in bin/ collides with a
-# brew or mise binary, so winning outright costs nothing.
+# Ahead of Homebrew, so bin/gh shadows the Homebrew gh. It goes in before mise
+# activates: mise's prompt hook moves any dir added after activation to the
+# end of PATH, behind Homebrew. mise's own dirs still land ahead of these, which
+# is harmless — nothing in bin/ collides with a mise tool.
 export PATH="$HOME/.dotfiles/bin:$HOME/.local/bin:$PATH"
+
+# mise — manages CLI tools (prettier, sqlfluff, cswap) and the Node runtime.
+# Not cached: `mise activate` bakes the current $PATH into its output as a
+# literal, so a cached copy replays a stale PATH into every new shell.
+path=($path)
+command -v mise >/dev/null && eval "$(mise activate zsh)"
 
 # Python writes its bytecode cache here instead of a __pycache__ beside every module,
 # so repos stay browsable. Imports stay as fast; the cache just lives elsewhere.
 export PYTHONPYCACHEPREFIX="$HOME/.cache/pycache"
+
+# The Auth0 CLI posts usage analytics after every command. The DNS blocker
+# refuses the host, so each command would print a connection error.
+export AUTH0_CLI_ANALYTICS=false
 
 # Starship prompt (replaces the Oh My Zsh ZSH_THEME above).
 # Falls back to the oh-my-zsh theme if Starship isn't installed yet.
@@ -285,6 +299,3 @@ claude-course-config
 
 # opencode
 export PATH="$HOME/.opencode/bin:$PATH"
-
-# Added by cua-driver-rs installer — see https://github.com/trycua/cua
-export PATH="/Users/davontaejackson/.local/bin:$PATH"
