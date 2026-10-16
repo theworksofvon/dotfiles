@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck disable=SC1007  # `CDPATH= cd` is deliberate: run cd with CDPATH unset
 # gh — route each invocation to the GitHub account that owns the directory.
 #
 # git picks its account from the includeIf on ~/src/costmine, but gh keeps a single

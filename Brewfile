@@ -10,6 +10,10 @@
 # A tool in both places means the PATH order decides which one you get, so
 # each belongs in exactly one.
 
+# ── third-party taps ──────────────────────────────
+tap "auth0/auth0-cli"            # auth0 is not in homebrew-core
+tap "fujiwara/tap"               # ecsta is not in homebrew-core
+
 # ── shell ─────────────────────────────────────────
 brew "starship"                  # prompt
 brew "zsh-autosuggestions"       # ghosted suggestion from history
@@ -31,6 +35,7 @@ brew "git-delta"                 # renders git diffs
 brew "git-lfs"                   # gitconfig registers its filter unconditionally
 brew "gh"                        # GitHub CLI; git-pr, bin/gh and auth depend on it
 brew "neovim"
+brew "shellcheck"                # `just lint`
 brew "clang-format"              # C++ formatting for the agent hook
 brew "mise"                      # runtimes and CLI tools — the other half of this file
 brew "jq"                        # the formatter hook parses hook payloads with it;
@@ -48,13 +53,17 @@ brew "yt-dlp"                    # video downloader
 
 # ── cloud and infra ───────────────────────────────
 brew "awscli"                    # AWS CLI; the RDS-to-Docker pipeline shells out to it
+brew "fujiwara/tap/ecsta"        # ECS exec, port-forward and logs, like kubectl for the Costmine clusters
+cask "session-manager-plugin"    # SSM tunnel that ecsta and `aws ecs execute-command` need
 brew "azure-cli"                 # az; the azure-devops extension reads Costmine pipelines
+brew "auth0/auth0-cli/auth0"     # Auth0 CLI; manages APIs, scopes and grants on the Costmine tenants
 brew "tailscale"                 # CLI half; the cask below is the menu-bar app
 
 # ── apps ──────────────────────────────────────────
 cask "ghostty"                   # terminal
 cask "t3-code"                   # editor and coding agent
 cask "orbstack"                  # Docker/Linux VMs, replaces Docker Desktop
+cask "hammerspoon"               # work-day hotkey; config in hammerspoon/init.lua
 cask "tailscale-app"             # menu-bar client
 cask "font-jetbrains-mono-nerd-font"   # prompt and nvim icons need a Nerd Font
 cask "font-fira-code-nerd-font"        # alternate coding font

@@ -78,11 +78,14 @@ link_live() {
 # ~/.dotfiles/bin/... — a stable symlink to wherever this repo was cloned.
 # That's what lets the repo live anywhere instead of only in ~/dotfiles.
 if [ "$DOTFILES" != "$HOME/.dotfiles" ]; then
-  if $DRY_RUN; then
-    echo "Root"; echo "  would link ~/.dotfiles -> $DOTFILES"
+  echo "Root"
+  if [ "$(readlink "$HOME/.dotfiles")" = "$DOTFILES" ]; then
+    echo "  ${dim}·${reset} ~/.dotfiles"
+  elif $DRY_RUN; then
+    echo "  would link ~/.dotfiles -> $DOTFILES"
   else
     ln -sfn "$DOTFILES" "$HOME/.dotfiles"
-    echo "Root"; echo "  ~/.dotfiles -> $DOTFILES"
+    echo "  + ~/.dotfiles -> $DOTFILES"
   fi
 fi
 
@@ -98,6 +101,7 @@ fi
 echo "Ghostty"    ; link ghostty/config      "$HOME/.config/ghostty/config"
 echo "Neovim"     ; link nvim               "$HOME/.config/nvim"
 echo "mise"       ; link mise/config.toml   "$HOME/.config/mise/config.toml"
+echo "Hammerspoon"; link hammerspoon/init.lua "$HOME/.hammerspoon/init.lua"
 # gh's config.yml holds preferences and aliases only — credentials live in
 # hosts.yml, which is deliberately not tracked.
 echo "gh"         ; link config/gh/config.yml "$HOME/.config/gh/config.yml"
@@ -147,16 +151,19 @@ if [ -d "$HOME/.opencode" ] || [ -d "$HOME/.config/opencode" ] || command -v ope
   # no per-project step.
   link agents/AGENTS.md              "$HOME/.config/opencode/AGENTS.md"
   link agents/opencode/opencode.json "$HOME/.config/opencode/opencode.json"
-  link agents/opencode/plugins/notify.js "$HOME/.config/opencode/plugins/notify.js"
+  # notify.js is parked with agent-notify until notifications do something useful.
+  link agents/opencode/plugins/guard.js  "$HOME/.config/opencode/plugins/guard.js"
 else
   echo "  ${dim}·${reset} opencode not installed, skipped"
 fi
 
 # Skills live in their own repo (vstack) and share one SKILL.md format across
 # all three harnesses, so they link per-skill into whichever are installed.
+# opencode reads ~/.claude/skills itself; linking into its own skills dir too
+# would register every skill twice.
 VSTACK="$HOME/src/theworksofvon/vstack"
 if [ -d "$VSTACK/skills" ]; then
-  for dst in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.config/opencode/skills"; do
+  for dst in "$HOME/.claude/skills" "$HOME/.codex/skills"; do
     [ -d "$(dirname "$dst")" ] || continue
     mkdir -p "$dst"
     for skill in "$VSTACK"/skills/*/; do
@@ -185,7 +192,7 @@ else
   echo "  ${dim}·${reset} active prompt -> $(basename "$(readlink "$HOME/.config/starship.toml")" .toml)"
 fi
 
-$DRY_RUN || chmod +x "$DOTFILES"/bin/*
+$DRY_RUN || chmod +x "$DOTFILES"/bin/* "$DOTFILES"/agents/hooks/*
 
 echo
 if $DRY_RUN; then

@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# rules-lock — let agents edit the guard's rules.json for a while, then lock it.
+#
+# guard-rules keeps agents from editing agents/hooks/rules.json, since an agent
+# that could edit it could allow itself anything. This opens that file to
+# agent edits until a deadline, written to a state file the guard reads. The
+# lock comes back on its own, so a forgotten unlock costs minutes, not forever.
+#
+# The guard blocks agents from running this and from writing the state file:
+# run it yourself, in a terminal or with `!` in Claude Code.
+#
+#   rules-lock status      locked, or unlocked with the minutes left
+#   rules-lock off         unlock for 30 minutes
+#   rules-lock off 10      unlock for 10 minutes
+#   rules-lock on          lock now
+set -euo pipefail
+
+STATE="$HOME/.config/guard/rules-unlocked"
+
+minutes_left() {
+  local until now
+  until=$(cat "$STATE" 2>/dev/null || echo 0)
+  now=$(date +%s)
+  [[ $until =~ ^[0-9]+$ ]] || until=0
+  if [ "$until" -gt "$now" ]; then echo $(((until - now + 59) / 60)); else echo 0; fi
+}
+
+case "${1:-status}" in
+  status)
+    left=$(minutes_left)
+    if [ "$left" -gt 0 ]; then
+      echo "unlocked: agents can edit rules.json for $left more minute(s)"
+    else
+      echo "locked: agents cannot edit rules.json"
+    fi
+    ;;
+  off)
+    minutes=${2:-30}
+    [[ $minutes =~ ^[1-9][0-9]*$ ]] || { echo "rules-lock: minutes must be a whole number above 0" >&2; exit 1; }
+    mkdir -p "$(dirname "$STATE")"
+    echo $(($(date +%s) + minutes * 60)) >"$STATE"
+    echo "unlocked: agents can edit rules.json for $minutes minute(s); \`rules-lock on\` locks it sooner"
+    ;;
+  on)
+    rm -f "$STATE"
+    echo "locked: agents cannot edit rules.json"
+    ;;
+  *)
+    echo "usage: rules-lock [status | off [minutes] | on]" >&2
+    exit 1
+    ;;
+esac

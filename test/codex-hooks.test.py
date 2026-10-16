@@ -16,12 +16,16 @@ for name in ("config.toml", "config.example.toml"):
     )
 
     groups = config["hooks"]["PreToolUse"]
-    bash_groups = [group for group in groups if group["matcher"] == "^Bash$"]
-    assert len(bash_groups) == 1, f"{path}: expected one exact Bash hook group"
+    bash_groups = [group for group in groups if group["matcher"] == "^(Bash|apply_patch)$"]
+    assert len(bash_groups) == 1, f"{path}: expected one Bash and apply_patch hook group"
 
     handlers = bash_groups[0]["hooks"]
     assert len(handlers) == 1, f"{path}: expected one Bash hook handler"
     assert handlers[0]["type"] == "command"
-    assert handlers[0]["command"] == "$HOME/.dotfiles/bin/guard-main"
+    assert handlers[0]["command"] == "$HOME/.dotfiles/agents/hooks/guard"
+
+    post = config["hooks"]["PostToolUse"]
+    assert len(post) == 1, f"{path}: expected one PostToolUse hook group"
+    assert post[0]["hooks"][0]["command"] == "$HOME/.dotfiles/agents/hooks/format-on-write"
 
 print("Codex hook config is valid")

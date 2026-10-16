@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-GUARD="$ROOT/bin/guard-main"
+GUARD="$ROOT/agents/hooks/guard-main"
 PASS=0
 FAIL=0
 

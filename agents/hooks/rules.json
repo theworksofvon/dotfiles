@@ -1,0 +1,47 @@
+{
+  "auth0": {
+    "program": "auth0",
+    "default": "block",
+    "block": [
+      {
+        "match": "\\b(delete|remove)\\b",
+        "why": "deletes are never allowed, on any tenant"
+      },
+      {
+        "match": "^auth0 (login|logout|tenants use)\\b",
+        "why": "which tenant the CLI can reach is the user's choice; login also accepts client credentials, which would reach production with no browser"
+      },
+      {
+        "match": "--reveal-secrets\\b",
+        "why": "prints client secrets into the transcript"
+      },
+      {
+        "match": "^auth0 agent\\b",
+        "why": "installs skills straight into each harness, around vstack and skill-forge"
+      },
+      {
+        "match": "--no-scopes\\b",
+        "why": "clears every scope on a client grant, which is the same as a delete"
+      }
+    ],
+    "allow": [
+      {
+        "match": "^auth0( [a-z-]+){0,3} (list|ls|show|search|search-by-email|get|diff|tail)( |$)",
+        "why": "reads, on any tenant"
+      },
+      {
+        "match": "^auth0 api get\\b",
+        "why": "raw API reads; `auth0 api <path>` with no method can POST, so only an explicit get counts"
+      },
+      {
+        "match": "^auth0 (commands|docs|completion)\\b|^auth0( \\S+)* (--help|-h|--schema|--version|-v)( |$)",
+        "why": "help, schemas and docs touch no tenant"
+      },
+      {
+        "match": "^auth0\\b",
+        "when": { "auth0_tenant": "costmine-stage.us.auth0.com" },
+        "why": "creates and updates, on staging only"
+      }
+    ]
+  }
+}

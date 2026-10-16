@@ -8,7 +8,7 @@
  * agent actually said, adds the repository state a fresh agent would otherwise
  * have to rediscover, and writes HANDOFF.md for the next one to read.
  *
- * opencode is covered too, via its own `export` command.
+ * opencode is covered too, via its own `session export` command.
  *
  * By default the dialogue is summarized into a brief, because a verbatim
  * transcript can run to tens of thousands of tokens the receiving agent pays
@@ -103,8 +103,8 @@ function codexSessions(projectPath) {
     .map((f) => ({ ...f, source: "codex" }));
 }
 
-// opencode keeps sessions in a database rather than files, but ships an
-// `export` command that emits JSON — so shell out to it instead of reading
+// opencode keeps sessions in a database rather than files, but ships a
+// `session export` command that emits JSON — so shell out to it instead of reading
 // storage directly, which would break the moment their schema changes.
 function opencodeBin() {
   for (const c of [
@@ -124,8 +124,16 @@ function opencodeBin() {
 function opencodeSessions() {
   const bin = opencodeBin();
   if (!bin) return [];
-  // Without a session id, export emits the most recent session.
-  const raw = sh(bin, ["export"], REPO);
+  // Without a terminal, `session export` needs an id, so look up the newest
+  // session in this project first.
+  let id;
+  try {
+    id = JSON.parse(sh(bin, ["session", "list", "-n", "1", "--format", "json"], REPO))[0]?.id;
+  } catch {
+    return [];
+  }
+  if (!id) return [];
+  const raw = sh(bin, ["session", "export", id], REPO);
   if (!raw) return [];
   return [{ path: null, mtimeMs: Date.now(), source: "opencode", raw }];
 }
@@ -257,7 +265,7 @@ Rules:
 // are fallbacks that should never quietly become expensive.
 const CHEAP = {
   codex: "gpt-5.4-mini",
-  opencode: "opencode/north-mini-code-free",
+  opencode: "opencode/big-pickle",
 };
 
 function buildBriefPrompt(dialogue) {
