@@ -101,6 +101,7 @@ fi
 echo "Ghostty"    ; link ghostty/config      "$HOME/.config/ghostty/config"
 echo "Neovim"     ; link nvim               "$HOME/.config/nvim"
 echo "mise"       ; link mise/config.toml   "$HOME/.config/mise/config.toml"
+echo "Hammerspoon"; link hammerspoon/init.lua "$HOME/.hammerspoon/init.lua"
 # gh's config.yml holds preferences and aliases only — credentials live in
 # hosts.yml, which is deliberately not tracked.
 echo "gh"         ; link config/gh/config.yml "$HOME/.config/gh/config.yml"
