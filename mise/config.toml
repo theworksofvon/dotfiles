@@ -34,7 +34,9 @@ gitleaks = "latest"
 # launches whichever account owns the current directory.
 "pipx:claude-swap" = "latest"
 pulumi = "latest"
-ansible = { version = "latest", pipx_args = "--include-deps", uvx = false }
+# mise 2026.9 rejects pipx_args alongside uvx = false; uv exposes the
+# ansible-core entry points (ansible-playbook and friends) instead.
+"pypi:ansible" = { version = "latest", expose = ["ansible-core"] }
 
 [settings]
 # Refuse to install any release younger than 7 days, so a compromised
